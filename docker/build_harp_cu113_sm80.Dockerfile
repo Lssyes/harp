@@ -15,7 +15,7 @@ RUN cp /etc/apt/sources.list /etc/apt/sources.list.backup && \
     echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-security main restricted universe multiverse" >> /etc/apt/sources.list && \
     echo "deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-security main restricted universe multiverse" >> /etc/apt/sources.list  && \
     apt-get update  && \
-    apt-get install -y openssh-server wget git vim net-tools iftop coinor-cbc build-essential libibverbs-dev devscripts debhelper fakeroot
+    apt-get install -y openssh-server wget git vim net-tools iftop coinor-cbc build-essential libibverbs-dev devscripts debhelper fakeroot rsync
 
 
 ## setup ssh
@@ -64,7 +64,9 @@ RUN cd /workspace && \
 COPY docker/build_jaxlib /workspace/build_jaxlib
 COPY third_party/alpa/third_party/jax /workspace/jax
 COPY third_party/alpa/third_party/tensorflow-alpa /workspace/tensorflow-alpa
-COPY harp_patches/tensorflow-alpa/* /workspace/tensorflow-alpa/tensorflow/compiler/xla/service/gpu/
+COPY harp_patches/tensorflow-alpa/alpa_nccl_group_base.cc /workspace/tensorflow-alpa/tensorflow/compiler/xla/service/gpu/
+COPY harp_patches/tensorflow-alpa/alpa_nccl_group_base.h /workspace/tensorflow-alpa/tensorflow/compiler/xla/service/gpu/
+COPY harp_patches/tensorflow-alpa/xla.cc /workspace/tensorflow-alpa/tensorflow/compiler/xla/python/
 
 
 RUN ln -sf /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1 && \
