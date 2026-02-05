@@ -1,0 +1,25 @@
+## Global_config
+setup_global_envs.enable_H1F1B = True
+setup_global_envs.enable_ZRP = True    
+setup_global_envs.enable_Hetero = True
+
+setup_global_envs.layer_construction_eps = 0.5
+setup_global_envs.NCCL_MAX_CTAS_CROSS_RESHARDING = 4
+setup_global_envs.profile_memory_safe_level = [None, None, None]
+# homo sub-cluster 内的 inter-node之间的带宽（若只有一台机器，随便填写）
+setup_global_envs.intra_cluster_network_performance = [ 
+    {"bandwidth": 25, "latency": 1e-5},   # V100
+    {"bandwidth": 25, "latency": 1e-5},   # A100
+    {"bandwidth": 25,  "latency": 1e-5},   # A101
+]
+# 不同的 sub-cluster 之间的 inter-node之间的带宽（若只有一台机器，随便填写）
+setup_global_envs.inter_cluster_network_performance = [
+    {"bandwidth": 0.625, "latency": 0.001},   # V100 <-> A100
+    {"bandwidth": 0.625, "latency": 2e-4},   # A100 <-> A101
+    None,   # A101 <-> V100
+]
+setup_global_envs.enable_intra_ib = [True, True, True]
+setup_global_envs.enable_inter_ib = [False, True, None]
+setup_global_envs.enable_nsys = True
+
+

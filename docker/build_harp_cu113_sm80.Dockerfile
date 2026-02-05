@@ -91,27 +91,8 @@ RUN cd /workspace/build_jaxlib && \
         --bazel_options=--action_env=TF_CUDA_PATHS=/usr/local/cuda-11.3,/usr/lib/x86_64-linux-gnu,/usr && \
     cd dist && \
     pip install -e .
-
-
-## install alpa env
-RUN mkdir /workspace/harp
-COPY third_party/alpa/alpa /workspace/harp/alpa/
-COPY third_party/alpa/setup.py /workspace/harp/
-COPY third_party/alpa/README.md /workspace/harp/
-COPY scripts /workspace/harp/scripts/
-COPY benchmark /workspace/benchmark/
-
-RUN cd /workspace/harp/ && \
-    pip install -e ".[dev]" && \
-    pip install -U "ray[default]"==2.9.0 && \
-    pip install RainbowPrint==0.0.1 -i https://pypi.org/simple && \
-    pip install numpy==1.20.0 && \
-    pip install numba==0.53.0  && \
-    pip install grpcio==1.60.0  && \
-    pip install pydantic==1.10.13  && \
-    pip install colorama && \
-    pip install gin_config && \
-    echo "Port 9022" >> /etc/ssh/sshd_config && \
+    
+RUN echo "Port 9022" >> /etc/ssh/sshd_config && \
     service ssh restart
 
 CMD ["/usr/sbin/sshd", "-D"]
@@ -122,6 +103,28 @@ RUN cd /workspace && \
     rm NsightSystems-linux-cli-public-2025.6.1.190-3689520.deb
 
 RUN pip install torch==1.12.0+cu113 --extra-index-url https://download.pytorch.org/whl/cu113
+
+## install alpa env
+RUN mkdir /workspace/harp
+COPY third_party/alpa/alpa /workspace/harp/alpa/
+COPY third_party/alpa/setup.py /workspace/harp/
+COPY third_party/alpa/README.md /workspace/harp/
+COPY scripts /workspace/harp/scripts/
+COPY benchmark /workspace/benchmark/
+
+COPY harp_patches/alpa/ /workspace/harp/alpa/
+
+RUN cd /workspace/harp/ && \
+    pip install -e ".[dev]" && \
+    pip install -U "ray[default]"==2.9.0 && \
+    pip install RainbowPrint==0.0.1 -i https://pypi.org/simple && \
+    pip install numpy==1.20.0 && \
+    pip install numba==0.53.0  && \
+    pip install grpcio==1.60.0  && \
+    pip install pydantic==1.10.13  && \
+    pip install colorama && \
+    pip install gin_config
+
 
 
 # docker build \
@@ -136,7 +139,7 @@ RUN pip install torch==1.12.0+cu113 --extra-index-url https://download.pytorch.o
 #     --shm-size 24G \
 #     --privileged \
 #     --ulimit memlock=-1 \
-#     --name harp \
+#     --name harp1 \
 #     --gpus all \
 #     -v /root/lssyes/nfs_share:/workspace/nfs_share \
 #     harp:sm80 /bin/bash

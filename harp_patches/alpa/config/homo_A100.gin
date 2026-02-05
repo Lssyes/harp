@@ -1,0 +1,15 @@
+## Global_config
+setup_global_envs.enable_H1F1B = False
+setup_global_envs.enable_ZRP = False    
+setup_global_envs.enable_Hetero = False
+
+setup_global_envs.layer_construction_eps = 0.5
+setup_global_envs.NCCL_MAX_CTAS_CROSS_RESHARDING = -1
+setup_global_envs.profile_memory_safe_level = [0]
+setup_global_envs.intra_cluster_network_performance = None
+setup_global_envs.inter_cluster_network_performance = None
+setup_global_envs.enable_intra_ib = None
+setup_global_envs.enable_inter_ib = None
+setup_global_envs.enable_nsys = True
+
+
