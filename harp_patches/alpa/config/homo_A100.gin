@@ -13,3 +13,13 @@ setup_global_envs.enable_inter_ib = None
 setup_global_envs.enable_nsys = True
 
 
+get_auto_stage_option.submesh_physical_shape_space = "single_node_power_of_two"
+get_auto_stage_option.submesh_logical_shape_space = "single_node_model_parallel"
+# get_auto_stage_option.stage_imbalance_tolerance = 0.5
+get_auto_stage_option.layer_profile_mode = "individual"
+
+get_auto_stage_option.use_hlo_cost_model = True
+get_auto_stage_option.profiling_database_filename = "/workspace/benchmark/harp/prof_database_A100.pkl"
+get_auto_stage_option.cluster_key = "A100"
+
+

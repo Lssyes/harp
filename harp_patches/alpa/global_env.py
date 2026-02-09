@@ -154,6 +154,12 @@ class GlobalConfig:
         self.collect_trace = cfg.collect_trace
 
 
+    def set_sliced_layer_mark(self, layer_mark, layer_nums):
+        assert self.enable_ZRP, "enable_zero_redundant_profiler should be True"
+        self.layer_mark = layer_mark
+        self.layer_nums = layer_nums
+        
+
 global_config = GlobalConfig()
 
 # Other environment setup

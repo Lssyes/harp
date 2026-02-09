@@ -148,6 +148,10 @@ def prepare_gpt_bert_input_and_model(model_type,
     }
     print_used_time("Prepare input")
 
+    if global_config.enable_ZRP:
+        add_manual_layer_marker = True
+        num_manual_pipeline_stages = benchmark_case.model_config.num_layers
+
     bert_config = BertConfig(
         vocab_size=vocab_size,
         hidden_size=hidden_size,
@@ -230,7 +234,8 @@ def benchmark_gpt_bert_3d_internal(model_type,
     (method, add_manual_remat, add_manual_layer_marker,
      num_manual_pipeline_stages) = get_pipeshard_parallel_method(
          benchmark_case,
-         use_fine_grained_remat=True,
+        #  use_fine_grained_remat=True,
+         use_fine_grained_remat=(not global_config.enable_ZRP), # zrp only supports coarse-grained remat
          pipeline_schedule=pipeline_schedule)
 
     state, batch, rngkey = prepare_gpt_bert_input_and_model(

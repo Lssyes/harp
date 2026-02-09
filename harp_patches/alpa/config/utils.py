@@ -74,3 +74,33 @@ def setup_global_envs(
                                 "x": "true", "f": "true",
                                 "trace-fork-before-exec": "true"
                             }
+        
+@gin.configurable
+def get_auto_stage_option(
+    submesh_physical_shape_space="single_node_power_of_two",
+    submesh_logical_shape_space="single_node_model_parallel_and_safememory_dp",
+    stage_imbalance_tolerance=0.3,
+    layer_profile_mode="individual",    # "individual" or "composition"
+    use_hlo_cost_model=True,
+    profiling_database_filename=None,
+    gpu_flops=None,
+    cluster_key=None,
+    cached_compute_communication_cost_load_path=None,
+    cached_compute_communication_cost_store_path_prefix=None,
+):
+    if cached_compute_communication_cost_load_path is not None:
+        assert isinstance(cached_compute_communication_cost_load_path, list), "cached_compute_communication_cost_load_path should be a list of paths for each cluster"
+    if cached_compute_communication_cost_store_path_prefix is not None:
+        assert isinstance(cached_compute_communication_cost_store_path_prefix, str), "cached_compute_communication_cost_store_path_prefix should be a string prefix for storing paths for each cluster"
+    return {
+        "submesh_physical_shape_space": submesh_physical_shape_space,
+        "submesh_logical_shape_space": submesh_logical_shape_space,
+        "stage_imbalance_tolerance": stage_imbalance_tolerance,
+        "use_hlo_cost_model": use_hlo_cost_model,
+        "profiling_database_filename": profiling_database_filename,
+        "gpu_flops": gpu_flops,
+        "cluster_key": cluster_key,
+        "layer_profile_mode": layer_profile_mode,
+        "cached_compute_communication_cost_load_path": cached_compute_communication_cost_load_path,
+        "cached_compute_communication_cost_store_path_prefix": cached_compute_communication_cost_store_path_prefix,
+    }

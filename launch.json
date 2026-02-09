@@ -1,0 +1,182 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug benchmark.py (hetero perf test)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "/workspace/benchmark/harp/benchmark.py",
+      "cwd": "/workspace/benchmark/harp",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": [
+        "--suite",
+        "gpt.perf_test_auto_heterogeneous",
+        "--niter",
+        "3",
+        "--enable-hetero",
+        "--num-hetero-clusters",
+        "3",
+        "--num-hosts",
+        "1,1,1",
+        "--num-devices-per-host",
+        "2,1,1",
+        "--gpu-info",
+        "V100,A100,A101",
+        "--gin-file",
+        "/workspace/harp/alpa/config/hetero_V100_A100_A101.gin"
+      ],
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    },
+    {
+      "name": "Debug benchmark.py (hetero perf test 2cluster)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "/workspace/benchmark/harp/benchmark.py",
+      "cwd": "/workspace/benchmark/harp",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": [
+        "--suite", "gpt.perf_test_auto_heterogeneous",
+        "--niter", "2",
+        "--enable-hetero",
+        "--num-hetero-clusters", "2",
+        "--num-hosts", "1,2",
+        "--num-devices-per-host", "4,2",
+        "--gpu-info", "V100,A100",
+        "--gin-file", "/workspace/harp/alpa/config/hetero_V100_A100.gin"
+      ],
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    },
+    {
+      "name": "Debug benchmark.py (homo perf test)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "/workspace/benchmark/harp/benchmark.py",
+      "cwd": "/workspace/benchmark/harp",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": [
+        "--suite", "gpt.perf_test_auto",
+        "--niter", "3",
+        "--num-hosts", "2",
+        "--num-devices-per-host", "2",
+        "--gin-file", "/workspace/harp/alpa/config/homo_A100.gin"
+      ],
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    },
+    {
+      "name": "Debug benchmark.py (homo grid search test)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "/workspace/benchmark/harp/benchmark.py",
+      "cwd": "/workspace/benchmark/harp",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": [
+        "--suite", "gpt.grid_search_auto",
+        "--niter", "3",
+        "--num-hosts", "2",
+        "--num-devices-per-host", "2",
+        "--gin-file", "/workspace/harp/alpa/config/homo_A100.gin"
+      ],
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    },
+    {
+      "name": "Debug benchmark.py (hetero grid search demo 2)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "/workspace/benchmark/harp/benchmark.py",
+      "cwd": "/workspace/benchmark/harp",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": [
+        "--suite", "gpt.grid_search_auto_heterogeneous",
+        "--niter", "2",
+        "--enable-hetero",
+        "--num-hetero-clusters", "2",
+        "--num-hosts", "1,2",
+        "--num-devices-per-host", "2,1",
+        "--gpu-info", "V100,A100",
+        "--gin-file", "/workspace/harp/alpa/config/hetero_V100_A100.gin"
+      ],
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    },
+    {
+      "name": "Debug benchmark.py (hetero grid search demo 3)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "/workspace/benchmark/harp/benchmark.py",
+      "cwd": "/workspace/benchmark/harp",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": [
+        "--suite", "gpt.grid_search_auto_heterogeneous",
+        "--niter", "3",
+        "--enable-hetero",
+        "--num-hetero-clusters", "3",
+        "--num-hosts", "1,1,1",
+        "--num-devices-per-host", "2,1,2",
+        "--gpu-info", "V100,A100,A101",
+        "--gin-file", "/workspace/harp/alpa/config/hetero_V100_A100_A101.gin"
+      ],
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    },
+    {
+      "name": "Debug benchmark.py (hetero grid search large 2)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "/workspace/benchmark/harp/benchmark.py",
+      "cwd": "/workspace/benchmark/harp",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": [
+        "--suite", "gpt.grid_search_auto_heterogeneous",
+        "--niter", "3",
+        "--enable-hetero",
+        "--num-hetero-clusters", "2",
+        "--num-hosts", "1,2",
+        "--num-devices-per-host", "8,2",
+        "--gpu-info", "V100,A100",
+        "--gin-file", "/workspace/harp/alpa/config/hetero_V100_A100.gin"
+      ],
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    },
+    {
+      "name": "Debug benchmark.py (hetero grid search large 3)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "/workspace/benchmark/harp/benchmark.py",
+      "cwd": "/workspace/benchmark/harp",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": [
+        "--suite", "gpt.grid_search_auto_heterogeneous",
+        "--niter", "5",
+        "--enable-hetero",
+        "--num-hetero-clusters", "3",
+        "--num-hosts", "1,1,1",
+        "--num-devices-per-host", "8,2,2",
+        "--gpu-info", "V100,A100,A101",
+        "--gin-file", "/workspace/harp/alpa/config/hetero_V100_A100_A101.gin"
+      ],
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    },
+  ]
+}

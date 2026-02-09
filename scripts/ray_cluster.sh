@@ -21,9 +21,9 @@ RESET='\033[0m'
 # Use IP for the first node because Ray requires it at startup
 # Nodes with same GPU type must contiguously follow each other in the list
 # Heterogeneous cluster configuration
-# declare -a ip_list=("192.168.0.2" "192.168.0.5" "192.168.0.4")
+declare -a ip_list=("192.168.0.2" "192.168.0.5" "192.168.0.4")
 # declare -a gpu_list=("gpu-type-V100:8" "gpu-type-A100:2" "gpu-type-A100:2")
-# declare -a gpu_list=("gpu-type-V100:8" "gpu-type-A101:2" "gpu-type-A100:2")
+declare -a gpu_list=("gpu-type-V100:8" "gpu-type-A101:2" "gpu-type-A100:2")
 
 # Homogeneous cluster configuration for A100
 # declare -a ip_list=("192.168.0.5" "192.168.0.4")
@@ -34,8 +34,8 @@ RESET='\033[0m'
 # declare -a gpu_list=("gpu-type-V100:8")
 
 # Heterogeneous Homo cluster configuration
-declare -a ip_list=("192.168.0.2" "192.168.0.5")
-declare -a gpu_list=("gpu-type-A100:2" "gpu-type-A100:2")
+# declare -a ip_list=("192.168.0.2" "192.168.0.5")
+# declare -a gpu_list=("gpu-type-A100:2" "gpu-type-A100:2")
 
 
 
@@ -182,8 +182,8 @@ kill_python_processes() {
 sync_code() {
     divider "sync_code: START"
 
-    # local src_dir="/workspace/harp"
-    local src_dir="/workspace/build_jaxlib"
+    local src_dir="/workspace/harp"
+    # local src_dir="/workspace/build_jaxlib"
     local dst_dir="/workspace/"
 
     info "[Local] Ensuring local rsync is installed, starting sync to workers..."
@@ -229,23 +229,34 @@ install_jaxlib_from_wheel() {
     info "Installing JAXLib on all nodes..."
 
     info "[Local] Compiling JAXLib..."
-    cd /workspace/alpa/build_jaxlib/ || exit
-    /opt/conda/envs/alpa/bin/python3 build/build.py --enable_cuda --dev_install --bazel_options=--override_repository=org_tensorflow="$(pwd)"/../third_party/tensorflow-alpa
-
+    cd /workspace/build_jaxlib/ || exit
+    export SM="80"
+    export LD_LIBRARY_PATH=/usr/local/cuda/lib64/stubs:$LD_LIBRARY_PATH
+    python build/build.py \
+        --python_bin_path=/usr/bin/python3.8 \
+        --enable_cuda \
+        --cuda_path=/usr/local/cuda-11.3 \
+        --cudnn_path=/usr/lib/x86_64-linux-gnu \
+        --cuda_version=11.3 \
+        --cudnn_version=8 \
+        --cuda_compute_capabilities="sm_${SM},compute_${SM}"\
+        --dev_install --bazel_options=--config=linux \
+        --bazel_options=--override_repository=org_tensorflow=/workspace/tensorflow-alpa \
+         --bazel_options=--action_env=TF_CUDA_PATHS=/usr/local/cuda-11.3,/usr/lib/x86_64-linux-gnu,/usr
     info "Distributing jaxlib wheel..."
     sync_code
 
     # Head Node Operation
     info "[Local] Installing JAXLib..."
-    cd /workspace/alpa/build_jaxlib/dist || exit
-    /opt/conda/envs/alpa/bin/pip3 install -e . || error "Local JAXLib installation failed!"
+    cd /workspace/build_jaxlib/dist || exit
+    /usr/bin/pip install -e . || error "Local JAXLib installation failed!"
 
     # Worker Node Operation
     for ((i = 1; i < ${#ip_list[@]}; i++)); do
         local ip="${ip_list[$i]}"
         info "[Worker: $ip] Installing JAXLib..."
         ssh -i "$SSH_KEY" root@"$ip" -p "$PORT" \
-            "cd /workspace/alpa/build_jaxlib/dist && /opt/conda/envs/alpa/bin/pip3 install -e . || echo 'JAXLib installation failed!'"
+            "cd /workspace/build_jaxlib/dist && /usr/bin/pip install -e . || echo 'JAXLib installation failed!'"
     done
 
     success "JAXLib installation completed on all nodes!"

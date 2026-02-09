@@ -5,7 +5,7 @@ setup_global_envs.enable_Hetero = True
 
 setup_global_envs.layer_construction_eps = 0.5
 setup_global_envs.NCCL_MAX_CTAS_CROSS_RESHARDING = 4
-setup_global_envs.profile_memory_safe_level = [None, None, None]
+setup_global_envs.profile_memory_safe_level = [0, 0, 0]
 # homo sub-cluster 内的 inter-node之间的带宽（若只有一台机器，随便填写）
 setup_global_envs.intra_cluster_network_performance = [ 
     {"bandwidth": 25, "latency": 1e-5},   # V100
@@ -21,5 +21,37 @@ setup_global_envs.inter_cluster_network_performance = [
 setup_global_envs.enable_intra_ib = [True, True, True]
 setup_global_envs.enable_inter_ib = [False, True, None]
 setup_global_envs.enable_nsys = True
+
+
+
+
+get_auto_stage_option.submesh_physical_shape_space = "single_node_power_of_two"
+get_auto_stage_option.submesh_logical_shape_space = "single_node_model_parallel_and_safememory_dp"
+
+# Jax use gemm to cacl embeding, make zrp work not well on very small gpt + large embedding model
+# We should set small stage_imbalance_tolerance when train large model, but larger stage_imbalance_tolerance when small model
+# get_auto_stage_option.stage_imbalance_tolerance = 0.3
+# get_auto_stage_option.layer_profile_mode = "composited"
+
+get_auto_stage_option.layer_profile_mode = "individual"
+get_auto_stage_option.use_hlo_cost_model = True
+get_auto_stage_option.profiling_database_filename = [
+    "/workspace/benchmark/harp/prof_database_V100.pkl",
+    "/workspace/benchmark/harp/prof_database_A100.pkl",
+    "/workspace/benchmark/harp/prof_database_A101.pkl",
+]
+get_auto_stage_option.gpu_flops = [125, 312, 312]
+get_auto_stage_option.cluster_key = ["V100", "A100", "A101"]
+
+# get_auto_stage_option.cached_compute_communication_cost_load_path = None
+# get_auto_stage_option.cached_compute_communication_cost_store_path_prefix = "/workspace/_tmp/2.6B-1x8V100_1x2A100_1x2A101/"
+
+get_auto_stage_option.cached_compute_communication_cost_load_path = [
+    '/workspace/_tmp/2.6B-1x8V100_1x2A100_1x2A101/0209-160345_cluster-0_vm(192.168.0.2:gpu:0_192.168.0.2:gpu:1_192.168.0.2:gpu:2_192.168.0.2:gpu:3_192.168.0.2:gpu:4_192.168.0.2:gpu:5_192.168.0.2:gpu:6_192.168.0.2:gpu:7)_mb64.pkl',
+    '/workspace/_tmp/2.6B-1x8V100_1x2A100_1x2A101/0209-160745_cluster-1_vm(192.168.0.4:gpu:0_192.168.0.4:gpu:1)_mb64.pkl',
+    '/workspace/_tmp/2.6B-1x8V100_1x2A100_1x2A101/0209-161143_cluster-2_vm(192.168.0.5:gpu:0_192.168.0.5:gpu:1)_mb64.pkl'
+]
+get_auto_stage_option.cached_compute_communication_cost_store_path_prefix = None
+
 
 

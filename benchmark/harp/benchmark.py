@@ -9,29 +9,34 @@ import numpy as np
 from alpa.util import (write_tsv, get_num_hosts_and_num_devices, to_str_round, GB)
 from alpa import init, global_config
 from alpa.util import disable_tqdm_globally
-from alpa.config.utils import setup_global_envs
+from alpa.config.utils import setup_global_envs, get_auto_stage_option
 
 from benchmark_one_case_gpt_bert import benchmark_gpt_bert_3d_internal
+from benchmark_parallel_utils import get_benchmark_memory_per_mesh
 
-import suite_auto_gpt
-# import suite_auto_moe
-# import suite_wresnet
-
-benchmark_suites = {
-    "gpt.tmp_auto": suite_auto_gpt.tmp_suite,
-    "gpt.perf_test_auto": suite_auto_gpt.perf_test_suite,
-    "gpt.grid_search_auto": suite_auto_gpt.grid_search_suite,
-    "gpt.correctness_test_auto": suite_auto_gpt.correctness_test_suite,
-    "gpt.perf_test_auto_heterogeneous": suite_auto_gpt.perf_test_suite_heterogeneous,
+benchmark_suites = {}
 
 
-    # "moe.tmp_auto": suite_auto_moe.tmp_suite,
-    # "moe.perf_test_auto": suite_auto_moe.perf_test_suite,
-    # "moe.grid_search_auto": suite_auto_moe.grid_search_suite,
-    # "wresnet.perf_test_2d": suite_wresnet.perf_test_2d_suite,
-    # "wresnet.perf_test_auto": suite_wresnet.perf_test_auto_suite,
-    # "wresnet.grid_search_auto": suite_wresnet.grid_search_auto_suite,
-}
+def _build_benchmark_suites():
+    import suite_auto_gpt
+    # import suite_auto_moe
+    # import suite_wresnet
+
+    return {
+        "gpt.tmp_auto": suite_auto_gpt.tmp_suite,
+        "gpt.perf_test_auto": suite_auto_gpt.perf_test_suite,
+        "gpt.grid_search_auto": suite_auto_gpt.grid_search_suite,
+        "gpt.correctness_test_auto": suite_auto_gpt.correctness_test_suite,
+        "gpt.perf_test_auto_heterogeneous": suite_auto_gpt.perf_test_suite_heterogeneous,
+        "gpt.grid_search_auto_heterogeneous": suite_auto_gpt.grid_search_suite_heterogeneous,
+
+        # "moe.tmp_auto": suite_auto_moe.tmp_suite,
+        # "moe.perf_test_auto": suite_auto_moe.perf_test_suite,
+        # "moe.grid_search_auto": suite_auto_moe.grid_search_suite,
+        # "wresnet.perf_test_2d": suite_wresnet.perf_test_2d_suite,
+        # "wresnet.perf_test_auto": suite_wresnet.perf_test_auto_suite,
+        # "wresnet.grid_search_auto": suite_wresnet.grid_search_auto_suite,
+    }
 
 def _check_and_print_global_config(args, cluster_info):
     print("\n\033[1;32m[Global Config]\033[0m")
@@ -114,7 +119,7 @@ def _get_cluster_configs(args, parser):
         parser.error("--num-hosts and --num-devices-per-host must have the same length.")
 
     if args.enable_hetero:
-        if getattr(args, "suite", None) not in ["gpt.perf_test_auto_heterogeneous"]:
+        if getattr(args, "suite", None) not in ["gpt.perf_test_auto_heterogeneous", "gpt.grid_search_auto_heterogeneous"]:
             parser.error("--enable-hetero requires --suite gpt.perf_test_auto_heterogeneous.")
         if args.num_hetero_clusters is None:
             parser.error("--num-hetero-clusters is required when --enable-hetero is set.")
@@ -275,7 +280,7 @@ def benchmark_suite(suite_name,
             model_type, model_config, num_micro_batches, num_gpus,
             parallel_args, f"{np.mean(latencies):.3f}",
             f"{np.std(latencies):.3f}", f"{parameter_count/1e9:.3f}B",
-            f"{tflops:.2f}", f"{peak_mem/GB:.3f}",
+            f"{tflops:.2f}", f"{get_benchmark_memory_per_mesh(peak_mem)}",
             to_str_round(metadata, 2)
         ]
         write_tsv(heads, values, output_name)
@@ -286,7 +291,6 @@ def benchmark_suite(suite_name,
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--suite",
-                        choices=list(benchmark_suites.keys()),
                         type=str,
                         required=True)
     parser.add_argument("--niter",
@@ -327,7 +331,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     cluster_info = _get_cluster_configs(args, parser)
-    gin.parse_config_file(args.gin_file)
+    if args.gin_file:
+        gin.parse_config_file(args.gin_file)
+    benchmark_suites = _build_benchmark_suites()
+    if args.suite not in benchmark_suites:
+        parser.error(f"--suite must be one of: {sorted(benchmark_suites.keys())}")
     setup_global_envs(global_config)
     _check_and_print_global_config(args, cluster_info)    # 由于 Alpa 没有采用 gin.config, 为了保证 args 和 gin 一致, 需要在 setup_global_envs 之后检查
 

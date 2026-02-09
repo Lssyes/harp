@@ -39,7 +39,8 @@ SearchParallelArgs = namedtuple("SearchParallelArgs", [
 LoadSolutionParallelArgs = namedtuple("LoadSolutionParallelArgs", [
     "prefer_reduce_scatter", "use_remat", "num_auto_layers",
     "forward_stage_layer_ids", "submesh_physical_shapes",
-    "submesh_logical_shapes", "submesh_autosharding_option_dicts"
+    "submesh_logical_shapes", "submesh_autosharding_option_dicts",
+    "maunal_schedule_strategy"
 ])
 
 
@@ -62,7 +63,7 @@ def get_pipeshard_parallel_method(benchmark_case: BenchmarkCase,
     parallel_args = benchmark_case.parallel_args
 
     if parallel_mode == "search":
-        raise NotImplementedError("Harp does not support uniform pipeshard parallel yet.")
+        # raise NotImplementedError("Harp does not support uniform pipeshard parallel yet.")
         assert isinstance(parallel_args, SearchParallelArgs)
         (prefer_reduce_scatter, use_remat, num_auto_layers,
          auto_stage_option) = parallel_args
@@ -71,6 +72,10 @@ def get_pipeshard_parallel_method(benchmark_case: BenchmarkCase,
         add_manual_remat = None
         remat_mode = "coarse_grained_remat" if use_remat else "none"
         auto_stage_option["cached_profile_result"] = None
+
+        if global_config.enable_Hetero:
+            assert auto_stage_option["gpu_flops"] is not None, "Please provide theoretical gpu_flops for each GPU."
+
         method = PipeshardParallel(
             num_micro_batches=num_micro_batches,
             default_auto_sharding_option=AutoShardingOption(
@@ -86,7 +91,8 @@ def get_pipeshard_parallel_method(benchmark_case: BenchmarkCase,
         (prefer_reduce_scatter, use_remat, num_auto_layers,
          forward_stage_layer_ids, submesh_physical_shapes,
          submesh_logical_shapes,
-         submesh_autosharding_option_dicts) = parallel_args
+         submesh_autosharding_option_dicts,
+         maunal_schedule_strategy) = parallel_args
         add_manual_layer_marker = None
         num_manual_pipeline_stages = None
         add_manual_remat = None
@@ -95,6 +101,9 @@ def get_pipeshard_parallel_method(benchmark_case: BenchmarkCase,
                           if use_fine_grained_remat else "coarse_grained_remat")
         else:
             remat_mode = "none"
+        if global_config.enable_H1F1B:
+            assert maunal_schedule_strategy is not None, "Please provide manual schedule strategy when H1F1B is enabled."
+
         model_num_layers = benchmark_case.model_config.num_layers
         method = PipeshardParallel(
             num_micro_batches=num_micro_batches,
@@ -110,7 +119,8 @@ def get_pipeshard_parallel_method(benchmark_case: BenchmarkCase,
             stage_option=ManualStageOption(forward_stage_layer_ids,
                                            submesh_physical_shapes,
                                            submesh_logical_shapes,
-                                           submesh_autosharding_option_dicts))
+                                           submesh_autosharding_option_dicts,
+                                           maunal_schedule_strategy=maunal_schedule_strategy))
     elif parallel_mode == "uniform":
         raise NotImplementedError("Harp does not support uniform pipeshard parallel yet.")
     else:
@@ -288,8 +298,8 @@ def compile_and_benchmark_pipeshard_training_executable(
         state,
         other_train_step_inputs,
         profile_driver_time=profile_driver_time)
-    max_mem_allocated = executable.mesh_group.get_max_memory_allocated()
-
+    # max_mem_allocated = executable.mesh_group.get_max_memory_allocated()
+    max_mem_allocated = executable.mesh_group.get_max_memory_allocated_per_mesh()
     return latencies, max_mem_allocated, compilation_times, executable
 
 
@@ -361,3 +371,23 @@ def compute_avg_stage_latencies(timelines: List[tuple]):
         ]
         stage_latencies.append(stage_latency)
     return np.mean(stage_latencies, axis=0)
+
+
+def get_benchmark_memory_per_mesh(peak_mem):
+    if isinstance(peak_mem, list):
+        if peak_mem and isinstance(peak_mem[0], list):
+            peak_mem_str = ""
+            for i in range(len(peak_mem)):
+                peak_mem_str += "[" + ",".join([f"{x/GB:.3f}" for x in peak_mem[i]]) + "]"
+        elif peak_mem and isinstance(peak_mem[0], int):
+            peak_mem_str = "[" + ",".join([f"{x/GB:.3f}" for x in peak_mem]) + "]"
+            peak_mem = max(peak_mem)
+            peak_mem_str += f" (max: {peak_mem/GB:.3f}GB)"
+        else:
+            raise ValueError(f"Invalid peak_mem: {peak_mem}")
+    
+    else:
+        
+        peak_mem_str = f"{peak_mem/GB:.3f}"
+    
+    return peak_mem_str

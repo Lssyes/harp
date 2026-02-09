@@ -137,6 +137,14 @@ class MeshHostWorker:
         set_override_backend(self.backend)
         self.local_devices = self.backend.local_devices()
         self.num_devices = len(self.local_devices)
+
+        # print(f"\033[1;32m[MeshHostWorker {mesh_id}-{host_id}] device_count {self.backend.device_count()}\033[0m")
+        # print(f"\033[1;32m[MeshHostWorker {mesh_id}-{host_id}] local_device_count {self.backend.local_device_count()}\033[0m")
+        # print(f"\033[1;32m[MeshHostWorker {mesh_id}-{host_id}] local_devices {self.backend.local_devices()}\033[0m")
+        # print(f"\033[1;32m[MeshHostWorker {mesh_id}-{host_id}] devices {self.backend.devices()}\033[0m")
+        # print(f"\033[1;32m[MeshHostWorker {mesh_id}-{host_id}] host_id {self.backend.host_id()}\033[0m")
+        assert host_id == 0, "Alpa xla comm backend only ok in single host mesh."   #FIXME
+
         if global_config.enable_overlapping:
             xe.set_num_device_on_host(self.num_devices)
 
