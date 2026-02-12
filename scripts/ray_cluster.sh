@@ -21,9 +21,15 @@ RESET='\033[0m'
 # Use IP for the first node because Ray requires it at startup
 # Nodes with same GPU type must contiguously follow each other in the list
 # Heterogeneous cluster configuration
-declare -a ip_list=("192.168.0.2" "192.168.0.5" "192.168.0.4")
+# declare -a ip_list=("192.168.0.2" "192.168.0.5" "192.168.0.4")
 # declare -a gpu_list=("gpu-type-V100:8" "gpu-type-A100:2" "gpu-type-A100:2")
-declare -a gpu_list=("gpu-type-V100:8" "gpu-type-A101:2" "gpu-type-A100:2")
+# declare -a gpu_list=("gpu-type-V100:8" "gpu-type-A101:2" "gpu-type-A100:2")
+
+
+# Heterogeneous Homo cluster configuration
+declare -a ip_list=("192.168.0.2" "192.168.0.5")
+declare -a gpu_list=("gpu-type-V100:2" "gpu-type-A100:1")
+
 
 # Homogeneous cluster configuration for A100
 # declare -a ip_list=("192.168.0.5" "192.168.0.4")
@@ -32,10 +38,6 @@ declare -a gpu_list=("gpu-type-V100:8" "gpu-type-A101:2" "gpu-type-A100:2")
 # Homogeneous cluster configuration for V100
 # declare -a ip_list=("192.168.0.2")
 # declare -a gpu_list=("gpu-type-V100:8")
-
-# Heterogeneous Homo cluster configuration
-# declare -a ip_list=("192.168.0.2" "192.168.0.5")
-# declare -a gpu_list=("gpu-type-A100:2" "gpu-type-A100:2")
 
 
 
