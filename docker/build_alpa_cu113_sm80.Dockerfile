@@ -64,10 +64,10 @@ RUN cd /workspace && \
 COPY docker/build_jaxlib /workspace/build_jaxlib
 COPY third_party/alpa/third_party/jax /workspace/jax
 COPY third_party/alpa/third_party/tensorflow-alpa /workspace/tensorflow-alpa
-COPY harp_patches/tensorflow-alpa/alpa_nccl_group_base.cc /workspace/tensorflow-alpa/tensorflow/compiler/xla/service/gpu/
-COPY harp_patches/tensorflow-alpa/alpa_nccl_group_base.h /workspace/tensorflow-alpa/tensorflow/compiler/xla/service/gpu/
-COPY harp_patches/tensorflow-alpa/xla.cc /workspace/tensorflow-alpa/tensorflow/compiler/xla/python/
-COPY harp_patches/tensorflow-alpa/pjrt_stream_executor_client.cc /workspace/tensorflow-alpa/tensorflow/compiler/xla/pjrt/
+# COPY harp_patches/tensorflow-alpa/alpa_nccl_group_base.cc /workspace/tensorflow-alpa/tensorflow/compiler/xla/service/gpu/
+# COPY harp_patches/tensorflow-alpa/alpa_nccl_group_base.h /workspace/tensorflow-alpa/tensorflow/compiler/xla/service/gpu/
+# COPY harp_patches/tensorflow-alpa/xla.cc /workspace/tensorflow-alpa/tensorflow/compiler/xla/python/
+# COPY harp_patches/tensorflow-alpa/pjrt_stream_executor_client.cc /workspace/tensorflow-alpa/tensorflow/compiler/xla/pjrt/
 
 
 RUN ln -sf /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1 && \
@@ -92,9 +92,8 @@ RUN cd /workspace/build_jaxlib && \
         --bazel_options=--action_env=TF_CUDA_PATHS=/usr/local/cuda-11.3,/usr/lib/x86_64-linux-gnu,/usr && \
     cd dist && \
     pip install -e .
-
-ENV HARP_SSH_PORT=9022
-RUN echo "Port ${HARP_SSH_PORT}" >> /etc/ssh/sshd_config && \
+    
+RUN echo "Port 9022" >> /etc/ssh/sshd_config && \
     service ssh restart
 
 CMD ["/usr/sbin/sshd", "-D"]
@@ -107,16 +106,16 @@ RUN cd /workspace && \
 RUN pip install torch==1.12.0+cu113 --extra-index-url https://download.pytorch.org/whl/cu113
 
 ## install alpa env
-RUN mkdir /workspace/harp
-COPY third_party/alpa/alpa /workspace/harp/alpa/
-COPY third_party/alpa/setup.py /workspace/harp/
-COPY third_party/alpa/README.md /workspace/harp/
-COPY scripts /workspace/harp/scripts/
+RUN mkdir /workspace/alpa
+COPY third_party/alpa/alpa /workspace/alpa/alpa/
+COPY third_party/alpa/setup.py /workspace/alpa/
+COPY third_party/alpa/README.md /workspace/alpa/
+COPY scripts /workspace/alpa/scripts/
 COPY benchmark /workspace/benchmark/
 
-COPY harp_patches/alpa/ /workspace/harp/alpa/
+# COPY harp_patches/alpa/ /workspace/alpa/alpa/
 
-RUN cd /workspace/harp/ && \
+RUN cd /workspace/alpa/ && \
     pip install -e ".[dev]" && \
     pip install -U "ray[default]"==2.9.0 && \
     pip install RainbowPrint==0.0.1 -i https://pypi.org/simple && \
@@ -133,15 +132,15 @@ RUN cd /workspace/harp/ && \
 #     --network host \
 #     --build-arg http_proxy=$http_proxy \
 #     --build-arg https_proxy=$https_proxy \
-#     -f docker/build_harp_cu113_sm80.Dockerfile \
-#     -t harp:sm80 .
+#     -f docker/build_alpa_cu113_sm80.Dockerfile \
+#     -t alpa:sm80 .
 
 # docker run -it \
 #     --network host \
 #     --shm-size 24G \
 #     --privileged \
 #     --ulimit memlock=-1 \
-#     --name harp1 \
+#     --name alpa \
 #     --gpus all \
 #     -v /root/lssyes/nfs_share:/workspace/nfs_share \
-#     harp:sm80 /bin/bash
+#     alpa:sm80 /bin/bash

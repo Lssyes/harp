@@ -1,5 +1,5 @@
-FROM nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
-ARG SM=80
+FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu20.04
+ARG SM=89
 
 ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /workspace
@@ -133,15 +133,15 @@ RUN cd /workspace/harp/ && \
 #     --network host \
 #     --build-arg http_proxy=$http_proxy \
 #     --build-arg https_proxy=$https_proxy \
-#     -f docker/build_harp_cu113_sm80.Dockerfile \
-#     -t harp:sm80 .
+#     -f docker/build_harp_cu118_sm89.Dockerfile \
+#     -t harp:sm89 .
 
 # docker run -it \
 #     --network host \
 #     --shm-size 24G \
 #     --privileged \
 #     --ulimit memlock=-1 \
-#     --name harp1 \
+#     --name harp \
 #     --gpus all \
 #     -v /root/lssyes/nfs_share:/workspace/nfs_share \
-#     harp:sm80 /bin/bash
+#     harp:sm89 /bin/bash

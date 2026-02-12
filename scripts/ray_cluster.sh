@@ -43,7 +43,7 @@ declare -a gpu_list=("gpu-type-V100:8" "gpu-type-A101:2" "gpu-type-A100:2")
 
 
 # SSH, Ray paths, ports, etc.
-PORT=9022
+PORT=$HARP_SSH_PORT
 SSH_KEY="/root/.ssh/id_rsa"
 RAY_ROOT="/usr/local/bin/ray"
 
