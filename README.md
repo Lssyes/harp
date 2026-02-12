@@ -214,6 +214,3 @@ root@a100x8-ib-ip2:/workspace#
 ```
 
 
-Contact & License
-License: This project is licensed under the MIT License - see the LICENSE file for details.
-
