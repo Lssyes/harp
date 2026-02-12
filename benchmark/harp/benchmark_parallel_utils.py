@@ -40,7 +40,7 @@ LoadSolutionParallelArgs = namedtuple("LoadSolutionParallelArgs", [
     "prefer_reduce_scatter", "use_remat", "num_auto_layers",
     "forward_stage_layer_ids", "submesh_physical_shapes",
     "submesh_logical_shapes", "submesh_autosharding_option_dicts",
-    "maunal_schedule_strategy"
+    "manual_schedule_strategy"
 ])
 
 
@@ -92,7 +92,7 @@ def get_pipeshard_parallel_method(benchmark_case: BenchmarkCase,
          forward_stage_layer_ids, submesh_physical_shapes,
          submesh_logical_shapes,
          submesh_autosharding_option_dicts,
-         maunal_schedule_strategy) = parallel_args
+         manual_schedule_strategy) = parallel_args
         add_manual_layer_marker = None
         num_manual_pipeline_stages = None
         add_manual_remat = None
@@ -102,7 +102,8 @@ def get_pipeshard_parallel_method(benchmark_case: BenchmarkCase,
         else:
             remat_mode = "none"
         if global_config.enable_H1F1B:
-            assert maunal_schedule_strategy is not None, "Please provide manual schedule strategy when H1F1B is enabled."
+            assert global_config.enable_overlapping, "H1F1B schedule requires overlapping to be enabled."
+            assert manual_schedule_strategy is not None, "Please provide manual schedule strategy when H1F1B is enabled."
 
         model_num_layers = benchmark_case.model_config.num_layers
         method = PipeshardParallel(
@@ -120,7 +121,7 @@ def get_pipeshard_parallel_method(benchmark_case: BenchmarkCase,
                                            submesh_physical_shapes,
                                            submesh_logical_shapes,
                                            submesh_autosharding_option_dicts,
-                                           maunal_schedule_strategy=maunal_schedule_strategy))
+                                           manual_schedule_strategy=manual_schedule_strategy))
     elif parallel_mode == "uniform":
         raise NotImplementedError("Harp does not support uniform pipeshard parallel yet.")
     else:

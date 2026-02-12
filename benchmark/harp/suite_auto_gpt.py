@@ -20,7 +20,7 @@ gpt_specs = {
     "2.6B": GPTModelConfig(1024, 2560, 32, 32, 51200),
     "6.7B": GPTModelConfig(1024, 4096, 32, 32, 51200),
     "15B": GPTModelConfig(1024, 5120, 48, 40, 51200),
-    "39B": GPTModelConfig(1024, 8192, 48, 64, 51200),
+    "39B": GPTModelConfig(1024, 8192, 48, 64, 51200),  
     "76B": GPTModelConfig(1024, 10240, 60, 80, 51200),
 }
 max_global_batch_size = 1024
@@ -45,7 +45,7 @@ def get_solution_case(model_spec, num_micro_batches, num_auto_layers,
                       forward_stage_layer_ids, submesh_physical_shapes,
                       submesh_logical_shapes,
                       submesh_autosharding_option_dicts,
-                      maunal_schedule_strategy=None):
+                      manual_schedule_strategy=None):
     return [
         BenchmarkCase(
             max_global_batch_size, model_spec, num_micro_batches,
@@ -55,7 +55,7 @@ def get_solution_case(model_spec, num_micro_batches, num_auto_layers,
                                      submesh_physical_shapes,
                                      submesh_logical_shapes,
                                      submesh_autosharding_option_dicts,
-                                     maunal_schedule_strategy=maunal_schedule_strategy))
+                                     manual_schedule_strategy=manual_schedule_strategy))
     ]
 
 
@@ -70,13 +70,13 @@ perf_test_suite_heterogeneous = {
                                  [(0, (1, 4)), (1, (1, 2)), (1, (1, 2))],
                                  [(2, 2), (2, 1), (2, 1)],
                                  [force_dp_dict] * 3,
-                                 maunal_schedule_strategy=None),
+                                 manual_schedule_strategy=None),
     (4, 4): get_solution_case(gpt_specs["1M"], 512, 3, 
                                  [[0], [1], [2]],
                                  [(0, (1, 4)), (1, (1, 2)), (1, (1, 2))],
                                  [(2, 2), (2, 1), (2, 1)],
                                  [force_dp_dict] * 3,
-                                 maunal_schedule_strategy=None),
+                                 manual_schedule_strategy=None),
 
 
     (2, 1, 1): get_solution_case(gpt_specs["1M"], 64, 2,             #
@@ -84,23 +84,30 @@ perf_test_suite_heterogeneous = {
                                  [(0, (1, 2)), (1, (1, 1)), (2, (1, 1))],
                                  [(2, 1), (1, 1), (1, 1)],
                                  [force_dp_dict] * 3,
-                                 maunal_schedule_strategy=None),
+                                 manual_schedule_strategy=[7, 4, 1]),
+    (2, 1, 2): get_solution_case(gpt_specs["1M"], 64, 3,
+                                 [[0, 1, 2, 3], [4, 5, 6], [7, 8, 9, 10, 11], [12, 13, 14, 15], [16, 17, 18, 19]],
+                                 [(0, (1, 1)), (0, (1, 1)), (0, (1, 1)),  (1, (1, 1)), (1, (1, 1))],
+                                 [(1, 1), (1, 1), (1, 1), (1, 1), (1, 1)],
+                                 [force_dp_dict] * 5,
+                                 manual_schedule_strategy=[5, 4, 3, 2, 1]),
 
-    (8, 2, 2): get_solution_case(gpt_specs["2.6B"], 64, 2,       
-                                 [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29], 
-                                  [30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48], 
-                                  [49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65]],
-                                  [[0, [1, 8]], [1, [1, 2]], [2, [1, 2]]],
-                                  [[8, 1], [2, 1], [2, 1]],
-                                 [force_dp_dict] * 3,
-                                 maunal_schedule_strategy=None),
 
+    (8, 2, 2): get_solution_case(gpt_specs["6.7B"], 256, 3,       
+                                [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [10, 11, 12, 13, 14, 15], [16, 17, 18, 19, 20, 21], [22, 23, 24, 25, 26, 27], [28, 29, 30, 31, 32, 33], [34, 35, 36, 37, 38, 39], [40, 41, 42, 43, 44, 45], [46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72], [73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97]],
+                                [(0, (1, 2)), (0, (1, 1)), (0, (1, 1)), (0, (1, 1)), (0, (1, 1)), (0, (1, 1)), (0, (1, 1)), (1, (1, 2)), (2, (1, 2))],
+                                [(2, 1), (1, 1), (1, 1), (1, 1), (1, 1), (1, 1), (1, 1), (2, 1), (2, 1)],
+                                 [force_dp_dict] * 9,
+                                 manual_schedule_strategy=[11, 10, 9, 8, 7, 6, 5, 3, 1]),
 }
 
 grid_search_suite_heterogeneous = {
     (2, 2): get_search_cases(gpt_specs["1M"], [32], [2]),
-    (2, 1, 2): get_search_cases(gpt_specs["1M"], [32], [2]),
-    (8, 2, 2): get_search_cases(gpt_specs["2.6B"], [64], [2]),
+    # (2, 1, 2): get_search_cases(gpt_specs["1.3B"], [128], [2]),
+    (2, 1, 2): get_search_cases(gpt_specs["1M"], [32], [3]),
+    # (8, 2, 2): get_search_cases(gpt_specs["2.6B"], [64], [2]),
+    # (8, 2, 2): get_search_cases(gpt_specs["6.7B"], [256], [3]),
+    (8, 2, 2): get_search_cases(gpt_specs["6.7B"], [128], [3]),
     (8, 4): get_search_cases(gpt_specs["2.6B"], [64], [2])
 }
 
@@ -113,16 +120,26 @@ perf_test_suite = {
         get_solution_case(gpt_specs["760M"], 128, 6, [[0, 1, 2], [3, 4, 5]],
                           [(1, 1)] * 2, [(1, 1)] * 2, [force_dp_dict] * 2),
     4:
-        get_solution_case(gpt_specs["1M"], 128, 6, [[0, 1, 2], [3, 4, 5]],
-                          [(1, 2)] * 2, [(2, 1)] * 2, [force_dp_dict] * 2,
-                          maunal_schedule_strategy=None),
+        # get_solution_case(gpt_specs["1M"], 128, 4, [[0], [1], [2, 3]],
+        #                   [(1, 1)] * 2 + [(1, 2)], 
+        #                   [(1, 1)] * 2 + [(2, 1)], [force_dp_dict] * 3,
+                        #   manual_schedule_strategy=None),
+        get_solution_case(gpt_specs["1M"], 8, 4, [[0], [1], [2], [3]],
+                          [(1, 1)] * 4, 
+                          [(1, 1)] * 4, [force_dp_dict] * 4,
+                          manual_schedule_strategy=None),
     8:
+        # get_solution_case(gpt_specs["350M"], 128,
+        #                   8, [[0, 1], [2, 3], [4, 5, 6, 7]], [(1, 2), (1, 2),
+        #                                                       (1, 4)], [(2, 1),
+        #                                                                 (2, 1),
+        #                                                                 (4, 1)],
+        #                   [force_dp_dict, {}, {}]),
         get_solution_case(gpt_specs["350M"], 128,
-                          8, [[0, 1], [2, 3], [4, 5, 6, 7]], [(1, 2), (1, 2),
-                                                              (1, 4)], [(2, 1),
-                                                                        (2, 1),
-                                                                        (4, 1)],
-                          [force_dp_dict, {}, {}]),
+                          8, [[0], [1], [2, 3], [4, 5, 6, 7]],
+                          [(1, 1), (1, 1), (1, 2), (1, 4)], 
+                          [(1, 1), (1, 1), (2, 1), (4, 1)],
+                          [force_dp_dict]*4),
     16:
         get_solution_case(gpt_specs["6.7B"], 64, 8,
                           [[0, 1, 2, 3], [4, 5, 6, 7]], [(1, 8)] * 2,

@@ -77,7 +77,7 @@ class ManualStageOption:
     submesh_autosharding_option_dicts: Sequence[dict]
 
     # Added by H1F1B
-    maunal_schedule_strategy: Sequence[int] = None
+    manual_schedule_strategy: Sequence[int] = None
 
 
 @dataclass
@@ -427,7 +427,7 @@ def inference_dp(num_layers, num_devices, submesh_choices,
 
 
 @maybe_numba_jit
-def get_optimal_submeshes_hetero(best_s, best_last_cluster, f_argmin, 
+def get_optimal_submeshes_hetero(best_s, best_last_cluster, f_argmin, f_stage_launch_mbs,
                                  num_layers, submesh_sizes_s, bounds, strides):
     """Backtracking to reconstruct solution for N Hetero Clusters."""
     current_s = best_s
@@ -442,9 +442,11 @@ def get_optimal_submeshes_hetero(best_s, best_last_cluster, f_argmin,
          current_device_state += max_used * strides[i]
          
     res = []
+    res_mbs = []
 
     while current_s > 0 and current_layer < num_layers:
         record = f_argmin[current_s, current_layer, current_device_state, current_cluster]
+        mbs = f_stage_launch_mbs[current_s, current_layer, current_device_state, current_cluster]
         
         next_start_layer = record[0]
         prev_cluster = record[1]
@@ -455,6 +457,7 @@ def get_optimal_submeshes_hetero(best_s, best_last_cluster, f_argmin,
             
         res.append(((current_layer, next_start_layer), 
                     current_cluster, submesh_choice, autosharding_choice))
+        res_mbs.append(mbs)
         
         current_s -= 1
         current_layer = next_start_layer
@@ -464,7 +467,7 @@ def get_optimal_submeshes_hetero(best_s, best_last_cluster, f_argmin,
         
         current_cluster = prev_cluster
 
-    return res
+    return res, res_mbs
 
 
 
@@ -486,6 +489,7 @@ def training_dp_hetero_impl(
     f = np.full((num_layers + 1, num_layers + 1, total_device_states, num_clusters), np.inf, dtype=np.float32)
     f_stage_max = np.full((num_layers + 1, num_layers + 1, total_device_states, num_clusters), 0.0, dtype=np.float32)
     f_stage_comm_max = np.full((num_layers + 1, num_layers + 1, total_device_states, num_clusters), 0.0, dtype=np.float32)
+    f_stage_launch_mbs = np.full((num_layers + 1, num_layers + 1, total_device_states, num_clusters), 0.0, dtype=np.int32)
     
     # f_argmin: next_l, prev_cluster, submesh_id, config_id
     f_argmin = np.full((num_layers + 1, num_layers + 1, total_device_states, num_clusters, 4), -1, dtype=np.int32)
@@ -549,18 +553,19 @@ def training_dp_hetero_impl(
 
                     # Comm Cost
                     intra = communication_cost[c, i_end]
-                    inter = communication_cost[-1, i_end]
+                    inter = communication_cost[num_clusters + c, i_end]
                     
                     best_prev_val = np.inf
                     best_prev_c = -1
                     best_stg_mx = 0.0
                     best_com_mx = 0.0
+                    best_mbs = 0
                     
                     for prev_c in range(num_clusters):
                         # Enforce Monotonic Order (prev_c >= c)
                         # We want Cluster(Head) <= Cluster(Tail) => c <= prev_c
                         # So pruning if prev_c < c
-                        if prev_c < c:
+                        if prev_c < c or (prev_c > c + 1):
                             continue
 
                         prev_cost = f[s-1, next_l, prev_state_idx, prev_c]
@@ -569,6 +574,25 @@ def training_dp_hetero_impl(
                         cc = intra if prev_c == c else inter
                         if cc > t_max: continue
                         
+                        # Calculate Launch MBs
+                        if s == 1:
+                            curr_mbs = 1
+                        else:
+                            prev_mbs = f_stage_launch_mbs[s-1, next_l, prev_state_idx, prev_c]
+                            if prev_c == c:
+                                delta = 1
+                            else:
+                                if cc < t_max / 10:
+                                    delta = 1
+                                elif cc < t_max / 2:
+                                    delta = 2
+                                else:
+                                    delta = 3
+                            curr_mbs = prev_mbs + delta
+
+                        if 2 * curr_mbs > max_limit - 1:
+                            continue
+
                         total = prev_cost + stage_cost + cc
                         
                         if total < best_prev_val:
@@ -576,6 +600,7 @@ def training_dp_hetero_impl(
                             best_prev_c = prev_c
                             best_stg_mx = max(f_stage_max[s-1, next_l, prev_state_idx, prev_c], stage_cost)
                             best_com_mx = max(f_stage_comm_max[s-1, next_l, prev_state_idx, prev_c], stage_cost, cc)
+                            best_mbs = curr_mbs
                             
                     if best_prev_c != -1:
                         # Update DP
@@ -584,6 +609,7 @@ def training_dp_hetero_impl(
                             f_argmin[s, l_start, state_idx, c] = (next_l, best_prev_c, submesh_id, n_config)
                             f_stage_max[s, l_start, state_idx, c] = best_stg_mx
                             f_stage_comm_max[s, l_start, state_idx, c] = best_com_mx
+                            f_stage_launch_mbs[s, l_start, state_idx, c] = best_mbs
 
     # *** Optimization: Prune Invalid States for the next stage 's+1' ***
     # If using Monotonic Order (prev_c >= c), it means Cluster indices are NON-DECREASING 
@@ -593,7 +619,7 @@ def training_dp_hetero_impl(
     # The pure 'prev_c > c' check inside the loop only prunes edges. 
     # It does not prevent iterating over all 'state_idx'.
     
-    return f, f_stage_max, f_stage_comm_max, f_argmin
+    return f, f_stage_max, f_stage_comm_max, f_argmin, f_stage_launch_mbs
 
 def run_dp_batch_func(init_args, max_stage_costs):
     """Standalone DP batch runner for both Ray and local execution."""
@@ -613,7 +639,7 @@ def run_dp_batch_func(init_args, max_stage_costs):
         curr_off = 0
         
         has_sol = True
-        for c in range(num_clusters):
+        for c in range(num_clusters):   # compute_cost 是 [start, end, submesh_id, config_id], 其中 start end 是左闭右闭
             valid = np.transpose((compute_cost_s[c] <= max_stage_cost).nonzero())
             valid = valid[valid[:, 0] <= valid[:, 1]]
             
@@ -635,7 +661,7 @@ def run_dp_batch_func(init_args, max_stage_costs):
         
         valid_idxs_flat_arr = np.concatenate(valid_idxs_flat)
         
-        f, _, f_stage_comm_max, f_argmin = training_dp_hetero_impl(
+        f, _, f_stage_comm_max, f_argmin, f_stage_launch_mbs = training_dp_hetero_impl(
             num_layers, num_clusters, strides, bounds,
             submesh_sizes_flat, submesh_offsets,
             valid_idxs_flat_arr, 
@@ -665,7 +691,7 @@ def run_dp_batch_func(init_args, max_stage_costs):
         
         if total < best_cost:
             best_cost = total
-            best_solution = (bs, bc, f_argmin)
+            best_solution = (bs, bc, f_argmin, f_stage_launch_mbs)
     
     return best_cost, best_solution
 
@@ -736,7 +762,7 @@ def training_dp_hetero(num_layers, num_microbatches, num_devices_s, submesh_choi
     submesh_offsets = np.array(submesh_offsets, dtype=np.int64)
     
     if communication_cost is None:
-        communication_cost = np.zeros((num_clusters + 1, num_layers - 1), dtype=np.float32)
+        communication_cost = np.zeros((num_clusters * 2, num_layers), dtype=np.float32)
 
     init_args = (
         num_layers, num_clusters, strides, bounds,
@@ -861,24 +887,78 @@ def training_dp_hetero(num_layers, num_microbatches, num_devices_s, submesh_choi
 
     assert best_solution is not None, "No solution found"
     
-    bs, bc, f_argmin = best_solution
-    stages = get_optimal_submeshes_hetero(
-        bs, bc, f_argmin,
+    bs, bc, f_argmin, f_stage_launch_mbs = best_solution
+    stages, res_launch_mbs = get_optimal_submeshes_hetero(
+        bs, bc, f_argmin, f_stage_launch_mbs,
         num_layers, submesh_sizes_s_list, bounds, strides
     )
     
     print(f"+++ Best solution found. Cost: {best_cost:.2f}")
     
-    res_compute_cost = np.zeros(len(stages)) 
-    res_comm_cost = np.zeros(len(stages))
+    res_compute_cost = []
+    res_comm_cost = []
     
+    # Reconstruct costs for each stage
+    for i, stage_info in enumerate(stages):
+        (start_layer, end_layer), cluster_id, submesh_id, n_config = stage_info
+        
+        # 1. Get Compute Cost
+        c = compute_cost_s[cluster_id][start_layer, end_layer - 1, submesh_id, n_config]
+        res_compute_cost.append(c)
+        
+        # 2. Get Communication Cost
+        if i < len(stages) - 1:
+            next_stage_info = stages[i+1]
+            next_cluster_id = next_stage_info[1]
+            boundary_layer = end_layer - 1
+            
+            if next_cluster_id == cluster_id:
+                comm = communication_cost[cluster_id, boundary_layer]
+            else:
+                comm = communication_cost[num_clusters + cluster_id, boundary_layer]
+            res_comm_cost.append(comm)
+        else:
+            res_comm_cost.append(0.0)
+
+    res_compute_cost = np.array(res_compute_cost)
+    res_comm_cost = np.array(res_comm_cost)
+    res_launch_mbs = np.array(res_launch_mbs)
+    
+    # Format and Print Solution Details
+    print("\n" + "="*60)
+    print(f"Heterogeneous Pipeline Schedule (Cost: {best_cost:.4f})")
+    print(f"{'Stage':<6} | {'Cluster':<8} | {'Layers':<10} | {'Launch MB':<10} | {'Comp Cost':<10} | {'Comm Cost':<10}")
+    print("-" * 60)
+    
+    log_str = ""
+    for i, stage_info in enumerate(stages):
+        (start_layer, end_layer), cluster_id, _, _ = stage_info
+        
+        layers_str = f"[{start_layer},{end_layer})"
+        comp_str = f"{res_compute_cost[i]:.4f}"
+        comm_str = f"{res_comm_cost[i]:.4f}"
+        mbs_str = f"{res_launch_mbs[i]}"
+        
+        # Table Row
+        print(f"{i:<6} | {cluster_id:<8} | {layers_str:<10} | {mbs_str:<10} | {comp_str:<10} | {comm_str:<10}")
+        
+        # Connector String
+        stage_desc = f"(C{cluster_id}:L{layers_str}, MB={mbs_str})"
+        if i > 0:
+            log_str += " -> "
+        log_str += stage_desc
+        
+    print("-" * 60)
+    print(f"Path: {log_str}")
+    print("="*60 + "\n")
+
     if use_ray and pool:
         for actor in pool.workers:
             ray.kill(actor)
     
     timers("stage-construction-dp").stop()
     
-    return best_cost, stages, res_compute_cost, res_comm_cost
+    return best_cost, stages, res_compute_cost, res_comm_cost, res_launch_mbs
 
 
 
@@ -1372,7 +1452,7 @@ def cluster_layers_and_slice_mesh(
             # ======
 
             # # get communication cost Added by lssyes
-            # communication_cost = get_communication_cost(layers)
+            communication_cost = get_communication_cost(layers)
 
             
             for i, vm in enumerate(virtual_mesh):
@@ -1404,10 +1484,11 @@ def cluster_layers_and_slice_mesh(
             
 
             # communication_cost = get_communication_cost(layers)
-            communication_cost = None
+            # communication_cost = None
             (_, solution,
              solution_compute_cost,
-             solution_communication_cost) = training_dp_hetero(num_layers, num_micro_batches,
+             solution_communication_cost,
+             solution_launch_mbs) = training_dp_hetero(num_layers, num_micro_batches,
                                                                [vm.num_devices for vm in virtual_mesh],
                                                                submesh_choices,
                                                                compute_cost, max_n_succ_stages,
@@ -1430,12 +1511,17 @@ def cluster_layers_and_slice_mesh(
                 for _, sub_cluster_id, submesh_id, autosharding_config_id in solution
             ]
 
-            schedule_args = (solution_compute_cost, solution_communication_cost)
+            # manual_schedule_strategy for hetero 1F1B
+            manual_schedule_strategy = solution_launch_mbs
+
 
             
             
 
         else:
+            assert not global_config.enable_H1F1B, "H1F1B schedule is only for heterogeneous cluster, please set enable_Hetero to True."
+            manual_schedule_strategy = None
+ 
             submesh_choices = get_submesh_choices(
                 virtual_mesh.num_hosts, virtual_mesh.num_devices_per_host,
                 stage_option.submesh_physical_shape_space,
@@ -1471,6 +1557,7 @@ def cluster_layers_and_slice_mesh(
                 autosharding_configs[submesh_id][autosharding_config_id]
                 for _, submesh_id, autosharding_config_id in solution
             ]
+            
 
         logical_mesh_shapes = [
             mesh.shape for mesh, _ in selected_autosharding_configs
@@ -1497,13 +1584,12 @@ def cluster_layers_and_slice_mesh(
             for layer_id in stage_layer_ids:
                 assert layer_id == last_layer_id
                 last_layer_id += 1
-        assert last_layer_id == num_layers, (
-            f"{last_layer_id} layers in stage option, but {num_layers} marked")
+        assert last_layer_id == num_layers, f"{last_layer_id} layers in stage option, but {num_layers} marked"
         submesh_shapes = stage_option.submesh_physical_shapes
-        logical_mesh_shapes = (stage_option.submesh_logical_shapes or
-                               submesh_shapes)
-        autosharding_option_dicts = (
-            stage_option.submesh_autosharding_option_dicts)
+        logical_mesh_shapes = stage_option.submesh_logical_shapes or submesh_shapes
+        autosharding_option_dicts = stage_option.submesh_autosharding_option_dicts
+        manual_schedule_strategy = stage_option.manual_schedule_strategy
+        
     elif isinstance(stage_option, UniformStageOption):
         raise NotImplementedError("Harp does not support uniform stage option yet.")
     else:
@@ -1552,7 +1638,10 @@ def cluster_layers_and_slice_mesh(
 
     manual_stage_option = ManualStageOption(
         forward_stage_layer_ids, tuple(x.shape for x in sliced_meshes),
-        logical_mesh_shapes, autosharding_option_dicts)
+        logical_mesh_shapes, autosharding_option_dicts, manual_schedule_strategy)
+
+    if global_config.enable_H1F1B:
+        set_global_ib_flag(submesh_shapes)
 
     timers("stage-construction").stop()
     return stages, stage_to_mesh, sliced_meshes, manual_stage_option
@@ -1639,3 +1728,32 @@ def _print_dp_results(forward_stage_layer_ids, submesh_shapes, logical_mesh_shap
         
         readable_str = f"[{', '.join(readable_list)}]"
         print(f"{GREEN}Result mesh_shapes(readable){RESET}", readable_str)
+
+
+def set_global_ib_flag(submesh_shapes):
+    
+    inter_use_ib = global_config.enable_inter_ib
+    intra_use_ib = global_config.enable_intra_ib
+    resharding_use_ib = np.zeros((len(submesh_shapes), len(submesh_shapes)), dtype=np.bool)
+    for i in range(len(submesh_shapes)):
+        for j in range(len(submesh_shapes)):
+            if i == j:
+                resharding_use_ib[i, j] = False
+            else:
+                send_cluster_id, recv_cluster_id = submesh_shapes[i][0], submesh_shapes[j][0]
+                # 对于集群内部
+                if send_cluster_id == recv_cluster_id:
+                    resharding_use_ib[i, j] = True if intra_use_ib[send_cluster_id] else False
+                elif send_cluster_id - recv_cluster_id == -1:   # 相邻 正向
+                    assert inter_use_ib[send_cluster_id] is not None, f"Unhandled Error, submesh_shapes: {submesh_shapes}, inter_use_ib: {inter_use_ib}"
+                    resharding_use_ib[i, j] = True if inter_use_ib[send_cluster_id] else False
+                elif send_cluster_id - recv_cluster_id == 1:    # 相邻 反向
+                    assert inter_use_ib[recv_cluster_id] is not None, f"Unhandled Error, submesh_shapes: {submesh_shapes}, inter_use_ib: {inter_use_ib}"
+                    resharding_use_ib[i, j] = True if inter_use_ib[recv_cluster_id] else False
+                else:
+                    resharding_use_ib[i, j] = False
+    global_config.set_resharding_use_ib(resharding_use_ib)
+
+
+def get_gd_pipeline_schedule(stage_option, schedule_args):
+    raise NotImplementedError("Harp does not support get_gd_pipeline_schedule yet.")

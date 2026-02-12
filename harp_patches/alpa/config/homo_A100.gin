@@ -10,7 +10,7 @@ setup_global_envs.intra_cluster_network_performance = None
 setup_global_envs.inter_cluster_network_performance = None
 setup_global_envs.enable_intra_ib = None
 setup_global_envs.enable_inter_ib = None
-setup_global_envs.enable_nsys = True
+setup_global_envs.enable_nsys = False
 
 
 get_auto_stage_option.submesh_physical_shape_space = "single_node_power_of_two"

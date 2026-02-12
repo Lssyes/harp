@@ -200,14 +200,18 @@ def compile_pipeshard_executable_internal(
     debug_compilation_time("apply grad")
 
     # Generate pipeline schedule and placement
-    dependency, fwd_intermediates = gen_dependency_with_stages(
-        jax_pipeline_stages, num_meshes, sliced_apply_grad_stages)
+    dependency, fwd_intermediates = gen_dependency_with_stages(jax_pipeline_stages, num_meshes,
+                                                               sliced_apply_grad_stages)
+    if manual_stage_option.manual_schedule_strategy is not None:
+        _check_for_manual_schedule_strategy(pipeline_schedule, manual_stage_option.manual_schedule_strategy, sliced_virtual_meshes)
+    
     schedule = create_pipeline_schedule(
         pipeline_schedule,
         dependency=dependency,
         meshes=sliced_virtual_meshes,
         apply_grad_placement=apply_grad_placement,
-        num_batch=num_microbatch)
+        num_batch=num_microbatch,
+        manual_schedule_strategy=manual_stage_option.manual_schedule_strategy)
 
     # Forcibly set the sharding specs of global invars and outvars.
     # FIXME(yonghao): the invar can appear on multiple meshes and thus different
@@ -645,3 +649,22 @@ def debug_compilation_time(message):
         print(f"compile_pipeshard_executable::{message}: "
               f"{time.time() - _tic:.2f} s")
     _tic = time.time()
+
+
+def _check_for_manual_schedule_strategy(pipeline_schedule, manual_schedule_strategy, sliced_virtual_meshes):
+    if pipeline_schedule != "1f1b_overlap_friendly":
+        raise ValueError("Manual schedule strategy is only supported for 1f1b_overlap_friendly schedule.")
+    if not global_config.enable_overlapping:
+        raise ValueError("H1F1B schedule requires overlapping to be enabled.")
+    if not global_config.enable_H1F1B:
+        raise ValueError("Manual schedule strategy is only supported when H1F1B is enabled.")
+    if len(manual_schedule_strategy) != len(sliced_virtual_meshes):
+        raise ValueError("The length of manual schedule strategy should be the same as the number of sliced virtual meshes.")
+    
+    assert manual_schedule_strategy[-1] == 1, f"The manual pipeline schedule {pipeline_schedule} is invalid."
+
+    ## assert decreasing order of the manual schedule strategy, which is required by the current implementation of H1F1B schedule. We can relax this requirement in the future by changing the implementation of H1F1B schedule.
+    for i in range(len(manual_schedule_strategy) - 1):
+        if (manual_schedule_strategy[i] - manual_schedule_strategy[i + 1] < 0 or
+            manual_schedule_strategy[i] - manual_schedule_strategy[i + 1] > 4):
+            raise ValueError("The manual schedule strategy should be in decreasing order, which is required by the current implementation of H1F1B schedule.")

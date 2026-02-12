@@ -47,6 +47,9 @@ def _check_and_print_global_config(args, cluster_info):
     print("")
 
     assert global_config.backend == "gpu", "Only GPU backend is supported for benchmark."
+    assert global_config.resharding_mode == "broadcast", "Harp only support resharding_mode to be 'broadcast'"
+    assert global_config.nccl_mode == "xla_extension", "Harp only support nccl_mode to be 'xla_extension'"
+    assert not global_config.use_local_allgather, "Harp only support use_local_allgather to be False"
 
     if args.enable_hetero:
         assert global_config.enable_Hetero, "--enable-hetero requires global_config.enable_Hetero = True"
@@ -64,7 +67,7 @@ def _check_and_print_global_config(args, cluster_info):
         assert global_config.intra_cluster_network_performance is not None, "H1F1B requires intra_cluster_network_performance to be set"
         assert global_config.inter_cluster_network_performance is not None, "H1F1B requires inter_cluster_network_performance to be set"
         assert global_config.NCCL_MAX_CTAS_CROSS_RESHARDING > 0, "H1F1B requires NCCL_MAX_CTAS_CROSS_RESHARDING to be positive"
-
+        assert global_config.enable_overlapping, "H1F1B requires enable_overlapping to be True"
 
 def _parse_int_list(arg_value, arg_name, parser):
     if arg_value is None:

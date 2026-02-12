@@ -1,8 +1,37 @@
 {
   "version": "0.2.0",
   "configurations": [
+      {
+      "name": "Debug benchmark.py (hetero perf large 3)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "/workspace/benchmark/harp/benchmark.py",
+      "cwd": "/workspace/benchmark/harp",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": [
+        "--suite",
+        "gpt.perf_test_auto_heterogeneous",
+        "--niter",
+        "3",
+        "--enable-hetero",
+        "--num-hetero-clusters",
+        "3",
+        "--num-hosts",
+        "1,1,1",
+        "--num-devices-per-host",
+        "8,2,2",
+        "--gpu-info",
+        "V100,A100,A101",
+        "--gin-file",
+        "/workspace/harp/alpa/config/hetero_V100_A100_A101.gin"
+      ],
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    },
     {
-      "name": "Debug benchmark.py (hetero perf test)",
+      "name": "Debug benchmark.py (hetero perf demo 3)",
       "type": "debugpy",
       "request": "launch",
       "program": "/workspace/benchmark/harp/benchmark.py",
@@ -31,7 +60,7 @@
       }
     },
     {
-      "name": "Debug benchmark.py (hetero perf test 2cluster)",
+      "name": "Debug benchmark.py (hetero perf demo 2)",
       "type": "debugpy",
       "request": "launch",
       "program": "/workspace/benchmark/harp/benchmark.py",
@@ -63,8 +92,8 @@
       "args": [
         "--suite", "gpt.perf_test_auto",
         "--niter", "3",
-        "--num-hosts", "2",
-        "--num-devices-per-host", "2",
+        "--num-hosts", "1",
+        "--num-devices-per-host", "1",
         "--gin-file", "/workspace/harp/alpa/config/homo_A100.gin"
       ],
       "env": {

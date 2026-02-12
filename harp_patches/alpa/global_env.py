@@ -12,7 +12,7 @@ class GlobalConfig:
 
         # See https://jax.readthedocs.io/en/latest/gpu_memory_allocation.html
         self.xla_client_mem_fraction = float(
-            os.environ.get("XLA_PYTHON_CLIENT_MEM_FRACTION", 0.9))
+            os.environ.get("XLA_PYTHON_CLIENT_MEM_FRACTION", 0.85))
         self.xla_client_client_preallocate = os.environ.get(
             "XLA_PYTHON_CLIENT_PREALLOCATE", "true")
         # The threshold to tigger a batched deletion on workers.
@@ -76,7 +76,7 @@ class GlobalConfig:
         # Which nccl to use. Possible choices: {"cupy",
         # "xla_extension"}
         self.nccl_mode = "xla_extension"
-        self.enable_overlapping = False
+        self.enable_overlapping = True
         # Cross mesh resharding load balancing mode.
         # Possible choices: {"normal", "no_loadbalance",
         # "loadbalance_size", "loadbalance_order"}
@@ -159,6 +159,10 @@ class GlobalConfig:
         self.layer_mark = layer_mark
         self.layer_nums = layer_nums
         
+    
+    def set_resharding_use_ib(self, resharding_use_ib):
+        assert self.enable_H1F1B, "enable_H1F1B should be True"
+        self.resharding_use_ib = resharding_use_ib
 
 global_config = GlobalConfig()
 

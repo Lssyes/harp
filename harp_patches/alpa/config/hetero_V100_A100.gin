@@ -40,14 +40,16 @@ get_auto_stage_option.profiling_database_filename = [
 get_auto_stage_option.gpu_flops = [125, 312]
 get_auto_stage_option.cluster_key = ["V100", "A100"]
 
-# get_auto_stage_option.cached_compute_communication_cost_load_path = None
-# get_auto_stage_option.cached_compute_communication_cost_store_path_prefix = "/workspace/_tmp/2.6B-1x8V100_2x2A100/"
+# -- grid_search first
+get_auto_stage_option.cached_compute_communication_cost_load_path = None
+get_auto_stage_option.cached_compute_communication_cost_store_path_prefix = "/workspace/_tmp/2.6B-1x8V100_2x2A100/"
 
-get_auto_stage_option.cached_compute_communication_cost_load_path = [
-    "/workspace/_tmp/2.6B-1x8V100_2x2A100/0209-193058_cluster-0_vm(192.168.0.2:gpu:0_192.168.0.2:gpu:1_192.168.0.2:gpu:2_192.168.0.2:gpu:3_192.168.0.2:gpu:4_192.168.0.2:gpu:5_192.168.0.2:gpu:6_192.168.0.2:gpu:7)_mb64.pkl",
-    "/workspace/_tmp/2.6B-1x8V100_2x2A100/0209-193501_cluster-1_vm(192.168.0.5:gpu:0_192.168.0.5:gpu:1_192.168.0.4:gpu:0_192.168.0.4:gpu:1)_mb64.pkl"
-]
-get_auto_stage_option.cached_compute_communication_cost_store_path_prefix = None
+# -- grid search debug
+# get_auto_stage_option.cached_compute_communication_cost_load_path = [
+#     "/workspace/_tmp/2.6B-1x8V100_2x2A100/0209-193058_cluster-0_vm(192.168.0.2:gpu:0_192.168.0.2:gpu:1_192.168.0.2:gpu:2_192.168.0.2:gpu:3_192.168.0.2:gpu:4_192.168.0.2:gpu:5_192.168.0.2:gpu:6_192.168.0.2:gpu:7)_mb64.pkl",
+#     "/workspace/_tmp/2.6B-1x8V100_2x2A100/0209-193501_cluster-1_vm(192.168.0.5:gpu:0_192.168.0.5:gpu:1_192.168.0.4:gpu:0_192.168.0.4:gpu:1)_mb64.pkl"
+# ]
+# get_auto_stage_option.cached_compute_communication_cost_store_path_prefix = None
 
 
 

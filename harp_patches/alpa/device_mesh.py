@@ -57,6 +57,7 @@ from alpa.util import (benchmark_func, list_gpu_info, OrderedSet,
                        try_import_ray_worker, create_placement_group,
                        get_bundle_idx, retrieve_placement_group, get_bundle2ip,
                        check_server_port)
+from cupy.cuda import nvtx
 
 ray_worker = try_import_ray_worker()
 
@@ -403,12 +404,16 @@ class MeshHostWorker:
 
     @staticmethod
     def init_broadcast_communicator(group_name, comm_key, world_size,
-                                    device_ids, devices_global_rank, nccl_uid):
+                                    device_ids, devices_global_rank, nccl_uid,
+                                    is_ib, NCCL_MAX_CTAS):
         """Initialize the P2P communicator from within the mesh workers."""
         assert col.is_group_initialized(group_name)
+        assert not global_config.enable_H1F1B
         g = col.check_and_get_group(group_name)
         g.create_nccl_broadcast_communicator(comm_key, world_size, device_ids,
-                                             devices_global_rank, nccl_uid)
+                                             devices_global_rank, nccl_uid, 
+                                             is_ib, NCCL_MAX_CTAS)
+        os.environ['NCCL_IB_DISABLE']="0"
 
     @staticmethod
     def destroy_collective_group(group_name: str = "default"):
@@ -533,15 +538,26 @@ class MeshHostWorker:
             is_send = broadcast_spec.devices_global_rank[0] == 0
             has_recv = has_recv or not is_send
             if global_config.enable_overlapping:
-                col.wait_events(group_name, [ary_uuid], self.num_devices,
-                                is_send)
-
+                col.wait_events(group_name, [ary_uuid], self.num_devices, is_send)
+            
+            if global_config.enable_nsys:
+                if is_send and has_recv:
+                    nvtx.RangePushC(f"BROADCAST is_send has_recv", 0xF00000)
+                elif not is_send and has_recv:
+                    nvtx.RangePushC(f"B_recv", 0x0F0000)
+                elif is_send and not has_recv:
+                    nvtx.RangePushC(f"B_send", 0x00F000)
+                else:
+                    nvtx.RangePushC(f"BROADCAST not is_send not has_recv", 0x000F00)
+                
             worker_nccl_util.broadcast(self, ary_uuid, broadcast_spec.comm_key,
                                        broadcast_spec.world_size,
                                        broadcast_spec.devices_ids,
                                        broadcast_spec.devices_global_rank,
                                        broadcast_spec.tensor_slices,
                                        task.group_name)
+            if global_config.enable_nsys:
+                nvtx.RangePop()
         if global_config.enable_overlapping and has_recv:
             col.record_events(group_name, [ary_uuid], self.num_devices, False)
 
@@ -1105,7 +1121,7 @@ class DistributedPhysicalDeviceMesh(PhysicalDeviceMesh):
                     global_config.xla_client_client_preallocate,
                 # "NCCL_LAUNCH_MODE": "PARALLEL",
                 # "XLA_FLAGS": "--xla_dump_to=hlo --xla_dump_hlo_pass_re=.*"
-                # "NCCL_DEBUG": "INFO" if i == 0 else "VERSION",
+                # "NCCL_DEBUG": "INFO",
                 # "NCCL_DEBUG_SUBSYS": "ALL",
                 # "RAY_IGNORE_UNHANDLED_ERRORS": "True",
             }
@@ -1119,8 +1135,7 @@ class DistributedPhysicalDeviceMesh(PhysicalDeviceMesh):
                     "XLA_PYTHON_CLIENT_ALLOCATOR"]
 
             if "NCCL_DEBUG" in os.environ:
-                env_vars["NCCL_DEBUG"] = os.environ[
-                    "NCCL_DEBUG"] if i == 0 else "VERSION"
+                env_vars["NCCL_DEBUG"] = os.environ["NCCL_DEBUG"] if i == 0 else "VERSION"
 
             if global_config.use_aws_efa:
                 env_vars.update({
@@ -1132,6 +1147,11 @@ class DistributedPhysicalDeviceMesh(PhysicalDeviceMesh):
                 })
 
             # env_vars["NCCL_SOCKET_IFNAME"] = "eth0"
+
+            runtime_env = {
+                "env_vars": env_vars,
+                "nsight": global_config.nsys_config
+            }
 
             bundle_index = device_bundle_idx_list[i]
 
@@ -1149,9 +1169,8 @@ class DistributedPhysicalDeviceMesh(PhysicalDeviceMesh):
             worker = cls.options(placement_group=placement_group,
                                  placement_group_bundle_index=bundle_index,
                                  name=host_worker_name,
-                                 runtime_env={
-                                     "env_vars": env_vars
-                                 }).remote(server_address, self.num_hosts, i,
+                                 runtime_env=runtime_env
+                                 ).remote(server_address, self.num_hosts, i,
                                            self.mesh_id, move_worker,
                                            global_config.runtime_random_seed,
                                            global_config)
@@ -1454,7 +1473,10 @@ class DistributedPhysicalDeviceMesh(PhysicalDeviceMesh):
         if not forced:
             ray.get([w.shutdown.remote() for w in self.workers])
         for worker in self.workers:
-            ray.kill(worker)
+            if global_config.enable_nsys:
+                worker.__ray_terminate__.remote() 
+            else:
+                ray.kill(worker)
         self.workers = None
         # shutdown grpc server
         if self.service_server:
