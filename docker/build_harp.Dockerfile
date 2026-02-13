@@ -12,14 +12,14 @@ WORKDIR /workspace
 
 
 RUN cp /etc/apt/sources.list /etc/apt/sources.list.backup && \
-    echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal main restricted universe multiverse" > /etc/apt/sources.list && \
-    echo "deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal main restricted universe multiverse" >> /etc/apt/sources.list && \
-    echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-updates main restricted universe multiverse" >> /etc/apt/sources.list && \
-    echo "deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-updates main restricted universe multiverse" >> /etc/apt/sources.list && \
-    echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-backports main restricted universe multiverse" >> /etc/apt/sources.list && \
-    echo "deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-backports main restricted universe multiverse" >> /etc/apt/sources.list && \
-    echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-security main restricted universe multiverse" >> /etc/apt/sources.list && \
-    echo "deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-security main restricted universe multiverse" >> /etc/apt/sources.list  && \
+    # echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal main restricted universe multiverse" > /etc/apt/sources.list && \
+    # echo "deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal main restricted universe multiverse" >> /etc/apt/sources.list && \
+    # echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-updates main restricted universe multiverse" >> /etc/apt/sources.list && \
+    # echo "deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-updates main restricted universe multiverse" >> /etc/apt/sources.list && \
+    # echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-backports main restricted universe multiverse" >> /etc/apt/sources.list && \
+    # echo "deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-backports main restricted universe multiverse" >> /etc/apt/sources.list && \
+    # echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-security main restricted universe multiverse" >> /etc/apt/sources.list && \
+    # echo "deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-security main restricted universe multiverse" >> /etc/apt/sources.list  && \
     apt-get update  && \
     apt-get install -y openssh-server wget git vim net-tools iftop coinor-cbc build-essential libibverbs-dev devscripts debhelper fakeroot rsync
 
@@ -52,8 +52,8 @@ RUN cd /workspace && \
 RUN apt-get install -y python3.8 python3.8-dev python3.8-venv python3-pip && \
     update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1 && \
     ln -s /usr/bin/python3.8 /usr/bin/python  && \
-    python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple --upgrade pip && \
-    pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple && \
+    # python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple --upgrade pip && \
+    # pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple && \
     pip3 install --upgrade pip
 
 
