@@ -1,8 +1,17 @@
-ARG BASE_IMAGE=nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
+ARG CUDA_VERSION=11.3.1
+ARG CUDNN_VERSION=8
+ARG UBUNTU_VERSION=20.04
+ARG BASE_IMAGE=nvidia/cuda:${CUDA_VERSION}-cudnn${CUDNN_VERSION}-devel-ubuntu${UBUNTU_VERSION}
 FROM ${BASE_IMAGE}
 
 ARG SM=80
 ARG HARP_SSH_PORT=9025
+
+# Extract major.minor from CUDA_VERSION (e.g., 11.3.1 -> 11.3) for use in paths/packages
+# Note: This runs in a shell so we can process the string
+ARG CUDA_VERSION
+ENV CUDA_HOME=/usr/local/cuda
+ENV CUDA_VERSION_MAJOR_MINOR=${CUDA_VERSION}
 
 ENV HARP_SSH_PORT=${HARP_SSH_PORT}
 ENV DEBIAN_FRONTEND=noninteractive
@@ -12,14 +21,14 @@ WORKDIR /workspace
 
 
 RUN cp /etc/apt/sources.list /etc/apt/sources.list.backup && \
-    # echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal main restricted universe multiverse" > /etc/apt/sources.list && \
-    # echo "deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal main restricted universe multiverse" >> /etc/apt/sources.list && \
-    # echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-updates main restricted universe multiverse" >> /etc/apt/sources.list && \
-    # echo "deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-updates main restricted universe multiverse" >> /etc/apt/sources.list && \
-    # echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-backports main restricted universe multiverse" >> /etc/apt/sources.list && \
-    # echo "deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-backports main restricted universe multiverse" >> /etc/apt/sources.list && \
-    # echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-security main restricted universe multiverse" >> /etc/apt/sources.list && \
-    # echo "deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-security main restricted universe multiverse" >> /etc/apt/sources.list  && \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal main restricted universe multiverse" > /etc/apt/sources.list && \
+    echo "deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal main restricted universe multiverse" >> /etc/apt/sources.list && \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-updates main restricted universe multiverse" >> /etc/apt/sources.list && \
+    echo "deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-updates main restricted universe multiverse" >> /etc/apt/sources.list && \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-backports main restricted universe multiverse" >> /etc/apt/sources.list && \
+    echo "deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-backports main restricted universe multiverse" >> /etc/apt/sources.list && \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-security main restricted universe multiverse" >> /etc/apt/sources.list && \
+    echo "deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-security main restricted universe multiverse" >> /etc/apt/sources.list  && \
     apt-get update  && \
     apt-get install -y openssh-server wget git vim net-tools iftop coinor-cbc build-essential libibverbs-dev devscripts debhelper fakeroot rsync
 
@@ -52,8 +61,8 @@ RUN cd /workspace && \
 RUN apt-get install -y python3.8 python3.8-dev python3.8-venv python3-pip && \
     update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1 && \
     ln -s /usr/bin/python3.8 /usr/bin/python  && \
-    # python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple --upgrade pip && \
-    # pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple && \
+    python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple --upgrade pip && \
+    pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple && \
     pip3 install --upgrade pip
 
 
@@ -75,27 +84,29 @@ COPY harp_patches/tensorflow-alpa/alpa_nccl_group_base.h /workspace/tensorflow-a
 COPY harp_patches/tensorflow-alpa/xla.cc /workspace/tensorflow-alpa/tensorflow/compiler/xla/python/
 COPY harp_patches/tensorflow-alpa/pjrt_stream_executor_client.cc /workspace/tensorflow-alpa/tensorflow/compiler/xla/pjrt/
 
-
-RUN ln -sf /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1 && \
-    ln -sf /usr/local/cuda-11.3/lib64/stubs/libcuda.so /usr/local/cuda-11.3/lib64/stubs/libcuda.so.1 && \
+# Use simple shell logic to strip the patch version if present for paths (11.3.1 -> 11.3)
+RUN export CUDA_MAJOR_MINOR=$(echo ${CUDA_VERSION_MAJOR_MINOR} | cut -d. -f1,2) && \
+    ln -sf /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1 && \
+    ln -sf /usr/local/cuda-${CUDA_MAJOR_MINOR}/lib64/stubs/libcuda.so /usr/local/cuda-${CUDA_MAJOR_MINOR}/lib64/stubs/libcuda.so.1 && \
     pip install numpy==1.20.0 setuptools wheel six auditwheel && \
     apt-get -y install gcc-7 g++-7 && \
     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 100
 
 RUN cd /workspace/build_jaxlib && \
+    export CUDA_MAJOR_MINOR=$(echo ${CUDA_VERSION_MAJOR_MINOR} | cut -d. -f1,2) && \
     export LD_LIBRARY_PATH=/usr/local/cuda/lib64/stubs:$LD_LIBRARY_PATH && \
     python build/build.py \
         --python_bin_path=/usr/bin/python3.8 \
         --enable_cuda \
-        --cuda_path=/usr/local/cuda-11.3 \
+        --cuda_path=/usr/local/cuda-${CUDA_MAJOR_MINOR} \
         --cudnn_path=/usr/lib/x86_64-linux-gnu \
-        --cuda_version=11.3 \
-        --cudnn_version=8 \
+        --cuda_version=${CUDA_MAJOR_MINOR} \
+        --cudnn_version=${CUDNN_VERSION} \
         --cuda_compute_capabilities="sm_${SM},compute_${SM}" \
         --dev_install \
         --bazel_options=--config=linux \
         --bazel_options=--override_repository=org_tensorflow=/workspace/tensorflow-alpa \
-        --bazel_options=--action_env=TF_CUDA_PATHS=/usr/local/cuda-11.3,/usr/lib/x86_64-linux-gnu,/usr && \
+        --bazel_options=--action_env=TF_CUDA_PATHS=/usr/local/cuda-${CUDA_MAJOR_MINOR},/usr/lib/x86_64-linux-gnu,/usr && \
     cd dist && \
     pip install -e .
 
@@ -136,31 +147,41 @@ RUN cd /workspace/harp/ && \
 
 # # V100(Volta)
 # SM=70
-# BASE_IMAGE="nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04"
+# CUDA_VERSION=11.3.1
+# CUDNN_VERSION=8
+# UBUNTU_VERSION=20.04
 
 # # A100(Ampere)
 # SM=80
-# BASE_IMAGE="nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04"
+# CUDA_VERSION=11.3.1
+# CUDNN_VERSION=8
+# UBUNTU_VERSION=20.04
 
 # # RTX40(Ada Lovelace)
 # SM=89
-# BASE_IMAGE="nvidia/cuda:11.8.0-cudnn8-devel-ubuntu20.04"
+# CUDA_VERSION=11.8.0
+# CUDNN_VERSION=8
+# UBUNTU_VERSION=20.04
 
 # # H100(Hopper)
 # SM=90
-# BASE_IMAGE="nvidia/cuda:11.8.0-cudnn8-devel-ubuntu20.04"
+# CUDA_VERSION=11.8.0
+# CUDNN_VERSION=8
+# UBUNTU_VERSION=20.04
+
 
 
 
 # docker build \
-#     --network host \
-#     --build-arg BASE_IMAGE="$BASE_IMAGE" \
-#     --build-arg SM="$SM" \
-#     --build-arg http_proxy="$http_proxy" \
-#     --build-arg https_proxy="$https_proxy" \
-#     -f docker/build_harp.Dockerfile \
-#     -t "harp:sm$GPU_TYPE" .
-
+#   --network host \
+#   --build-arg SM="${SM}" \
+#   --build-arg CUDA_VERSION="${CUDA_VERSION}" \
+#   --build-arg CUDNN_VERSION="${CUDNN_VERSION}" \
+#   --build-arg UBUNTU_VERSION="${UBUNTU_VERSION}" \
+#   --build-arg http_proxy="$http_proxy" \
+#   --build-arg https_proxy="$https_proxy" \
+#   -f docker/build_harp.Dockerfile \
+#   -t "harp:sm$GPU_TYPE" .
 
 # docker run -it \
 # 	  --rm \

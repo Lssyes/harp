@@ -54,12 +54,33 @@ Select the configuration matching your GPU architecture. Run this build command 
 | RTX40 | Ada Lovelace | 89 | 8.9 | nvidia/cuda:11.8.0-cudnn8-devel-ubuntu20.04 |
 | H100 | Hopper | 90 | 9.0 | nvidia/cuda:11.8.0-cudnn8-devel-ubuntu20.04 |
 
-**Example Build Command:** Replace `SM` and `BASE_IMAGE` with the values from the table above. For other GPU types, refer to https://en.wikipedia.org/wiki/CUDA to select the correct architecture and base image.
+**Example Build Command:** Replace `SM`, `CUDNN_VERSION` and `CUDA_VERSION` with the values refer to https://en.wikipedia.org/wiki/CUDA to select the correct architecture and base image.
 
 ```Bash
-# Example for A100 (SM=80)
-export SM=80
-export BASE_IMAGE="nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04"
+# # V100(Volta)
+SM=70
+CUDA_VERSION=11.3.1
+CUDNN_VERSION=8
+UBUNTU_VERSION=20.04
+
+# # A100(Ampere)
+SM=80
+CUDA_VERSION=11.3.1
+CUDNN_VERSION=8
+UBUNTU_VERSION=20.04
+
+# # RTX40(Ada Lovelace)
+SM=89
+CUDA_VERSION=11.8.0
+CUDNN_VERSION=8
+UBUNTU_VERSION=20.04
+
+# # H100(Hopper)
+SM=90
+CUDA_VERSION=11.8.0
+CUDNN_VERSION=8
+UBUNTU_VERSION=20.04
+
 
 docker build \
     --build-arg BASE_IMAGE="$BASE_IMAGE" \
