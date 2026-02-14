@@ -83,10 +83,13 @@ UBUNTU_VERSION=20.04
 
 
 docker build \
-    --build-arg BASE_IMAGE="$BASE_IMAGE" \
-    --build-arg SM="$SM" \
-    -f docker/build_harp.Dockerfile \
-    -t "harp:sm$SM" .
+  --build-arg SM="${SM}" \
+  --build-arg CUDA_VERSION="${CUDA_VERSION}" \
+  --build-arg CUDNN_VERSION="${CUDNN_VERSION}" \
+  --build-arg UBUNTU_VERSION="${UBUNTU_VERSION}" \
+  -f docker/build_harp.Dockerfile \
+  -t "harp:sm$GPU_TYPE" .
+
 ```
 
 
