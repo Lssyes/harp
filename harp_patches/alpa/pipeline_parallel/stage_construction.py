@@ -520,10 +520,10 @@ def training_dp_hetero_impl(
                     
                     if stage_cost > t_max: continue
                     
-                    # Max Successors Constraint
+                    # Memory limit from profiling for this stage candidate.
+                    # max_limit = maximal succeeding stages in classic 1F1B.
+                    # So maximal in-flight microbatches is (max_limit + 1).
                     max_limit = max_n_succ_stages_s[c][l_start, i_end, submesh_id, n_config]
-                    if 2 * (s - 1) > max_limit - 1:
-                        continue
                         
                     # Device Check
                     subsize = submesh_sizes_flat[submesh_offsets[c] + submesh_id]
@@ -576,9 +576,16 @@ def training_dp_hetero_impl(
                         
                         # Calculate Launch MBs
                         if s == 1:
+                            prev_mbs = 0
                             curr_mbs = 1
                         else:
                             prev_mbs = f_stage_launch_mbs[s-1, next_l, prev_state_idx, prev_c]
+
+                            # Early prune by lower bound of curr_mbs.
+                            # delta >= 1 always, so curr_mbs >= prev_mbs + 1.
+                            if prev_mbs >= max_limit + 1:
+                                continue
+
                             if prev_c == c:
                                 delta = 1
                             else:
@@ -590,7 +597,9 @@ def training_dp_hetero_impl(
                                     delta = 3
                             curr_mbs = prev_mbs + delta
 
-                        if 2 * curr_mbs > max_limit - 1:
+                        # OOM check based on scheduler-derived launch MBs.
+                        # Keep at most (max_limit + 1) in-flight activations.
+                        if curr_mbs > max_limit + 1:
                             continue
 
                         total = prev_cost + stage_cost + cc
@@ -897,6 +906,7 @@ def training_dp_hetero(num_layers, num_microbatches, num_devices_s, submesh_choi
     
     res_compute_cost = []
     res_comm_cost = []
+    res_max_succ_stages = []
     
     # Reconstruct costs for each stage
     for i, stage_info in enumerate(stages):
@@ -911,7 +921,7 @@ def training_dp_hetero(num_layers, num_microbatches, num_devices_s, submesh_choi
             next_stage_info = stages[i+1]
             next_cluster_id = next_stage_info[1]
             boundary_layer = end_layer - 1
-            
+
             if next_cluster_id == cluster_id:
                 comm = communication_cost[cluster_id, boundary_layer]
             else:
@@ -919,16 +929,19 @@ def training_dp_hetero(num_layers, num_microbatches, num_devices_s, submesh_choi
             res_comm_cost.append(comm)
         else:
             res_comm_cost.append(0.0)
+        max_succ = max_n_succ_stages_s[cluster_id][start_layer, end_layer - 1, submesh_id, n_config]
+        res_max_succ_stages.append(max_succ)
 
     res_compute_cost = np.array(res_compute_cost)
     res_comm_cost = np.array(res_comm_cost)
     res_launch_mbs = np.array(res_launch_mbs)
+    res_max_succ_stages = np.array(res_max_succ_stages)
     
     # Format and Print Solution Details
-    print("\n" + "="*60)
+    print("\n" + "="*80)
     print(f"Heterogeneous Pipeline Schedule (Cost: {best_cost:.4f})")
-    print(f"{'Stage':<6} | {'Cluster':<8} | {'Layers':<10} | {'Launch MB':<10} | {'Comp Cost':<10} | {'Comm Cost':<10}")
-    print("-" * 60)
+    print(f"{'Stage':<6} | {'Cluster':<8} | {'Layers':<10} | {'Launch MB':<10} | {'Comp Cost':<10} | {'Comm Cost':<10} | {'MaxSucc':<8}")
+    print("-" * 80)
     
     log_str = ""
     for i, stage_info in enumerate(stages):
@@ -938,9 +951,10 @@ def training_dp_hetero(num_layers, num_microbatches, num_devices_s, submesh_choi
         comp_str = f"{res_compute_cost[i]:.4f}"
         comm_str = f"{res_comm_cost[i]:.4f}"
         mbs_str = f"{res_launch_mbs[i]}"
+        max_succ_str = f"{int(res_max_succ_stages[i])}"
         
         # Table Row
-        print(f"{i:<6} | {cluster_id:<8} | {layers_str:<10} | {mbs_str:<10} | {comp_str:<10} | {comm_str:<10}")
+        print(f"{i:<6} | {cluster_id:<8} | {layers_str:<10} | {mbs_str:<10} | {comp_str:<10} | {comm_str:<10} | {max_succ_str:<8}")
         
         # Connector String
         stage_desc = f"(C{cluster_id}:L{layers_str}, MB={mbs_str})"
@@ -948,9 +962,9 @@ def training_dp_hetero(num_layers, num_microbatches, num_devices_s, submesh_choi
             log_str += " -> "
         log_str += stage_desc
         
-    print("-" * 60)
+    print("-" * 80)
     print(f"Path: {log_str}")
-    print("="*60 + "\n")
+    print("="*80 + "\n")
 
     if use_ray and pool:
         for actor in pool.workers:
