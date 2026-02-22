@@ -102,12 +102,13 @@ perf_test_suite_heterogeneous = {
 }
 
 grid_search_suite_heterogeneous = {
-    (2, 1): get_search_cases(gpt_specs["760M"], [32], [2]),
+    (2, 2): get_search_cases(gpt_specs["1M"], [32], [2]),
     # (2, 1, 2): get_search_cases(gpt_specs["1.3B"], [128], [2]),
     (2, 1, 2): get_search_cases(gpt_specs["1M"], [32], [3]),
     # (8, 2, 2): get_search_cases(gpt_specs["2.6B"], [64], [2]),
     # (8, 2, 2): get_search_cases(gpt_specs["6.7B"], [256], [3]),
     (8, 2, 2): get_search_cases(gpt_specs["6.7B"], [128], [3]),
+    (2, 8, 2): get_search_cases(gpt_specs["1.3B"], [64], [3]),
     (8, 4): get_search_cases(gpt_specs["2.6B"], [64], [2])
 }
 
