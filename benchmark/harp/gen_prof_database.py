@@ -57,7 +57,7 @@ if __name__ == "__main__":
     _ = jax.numpy.ones(1)
 
     # Connect to a ray cluster
-    alpa.init(cluster_info=None, enable_hetero=False)
+    alpa.init(cluster_info=None, enable_hetero=False, enable_pre_profile=True)
     cluster = alpa.get_global_cluster()
 
     prof_database = cluster.profile_all(args.cluster_key,

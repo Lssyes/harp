@@ -24,6 +24,7 @@ is_initialized = False
 
 def init(cluster_info,
          enable_hetero,
+         enable_pre_profile=False,
          namespace: Optional[str] = "alpa_default_space"):
     """Initialize the global environment.
 
@@ -36,7 +37,7 @@ def init(cluster_info,
         return
     is_initialized = True
 
-    init_global_cluster(cluster_info, enable_hetero, namespace)
+    init_global_cluster(cluster_info, enable_hetero, enable_pre_profile, namespace)
 
 
 def shutdown():

@@ -2171,6 +2171,7 @@ class DeviceCluster:
     def __init__(self,
                  cluster_info,
                  enable_hetero: bool = False,
+                 enable_pre_profile: bool = False,
                  namespace: Optional[str] = None):
         # pylint: disable=import-outside-toplevel
         ray_global_node = ray_worker._global_node
@@ -2229,7 +2230,14 @@ class DeviceCluster:
              self.gpu_types,
              self.num_gpu_per_hosts) = self._build_hetero_metadata(cluster_info)
         else:
-            self._validate_homogeneous()
+            if not enable_pre_profile:
+                self._validate_homogeneous()
+            else:
+                print("Skip validating homogeneous cluster since pre-profile is enabled.")
+                print(f"host info: {self.host_info}")
+                print(f"host_ips: {self.host_ips}")
+                assert len(self.host_ips) == 1, f"Pre-profile only need one node, but got {len(self.host_ips)} nodes."
+                
         self._print_cluster_info(enable_hetero)
 
 
@@ -2458,6 +2466,7 @@ global_virtual_physical_mesh: Union[VirtualPhysicalMesh, Sequence[VirtualPhysica
 
 def init_global_cluster(cluster_info,
                         enable_hetero: bool = False,
+                        enable_pre_profile: bool = False,
                         namespace: Optional[str] = None):
     global global_cluster, global_virtual_physical_mesh
 
@@ -2466,7 +2475,7 @@ def init_global_cluster(cluster_info,
                  ignore_reinit_error=True,
                  namespace=namespace)
     update_jax_platform("cpu")
-    global_cluster = DeviceCluster(cluster_info, enable_hetero=enable_hetero)
+    global_cluster = DeviceCluster(cluster_info, enable_hetero=enable_hetero, enable_pre_profile=enable_pre_profile)
     # TODO 其实这一步没用？
     # if enable_hetero:
     #     host_ids, _, num_gpu_per_hosts = global_cluster.hetero_info
