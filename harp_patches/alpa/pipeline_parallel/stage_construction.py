@@ -1459,9 +1459,6 @@ def cluster_layers_and_slice_mesh(
             compute_cost = []
             max_n_succ_stages = []
             
-            # 根据 stage_option 计算 heter_cluster_flops_ratio
-            heter_cluster_flops_ratio = get_heter_cluster_flops_ratio(virtual_mesh, stage_option)
-
 
             # ======
 
@@ -1481,8 +1478,7 @@ def cluster_layers_and_slice_mesh(
                         vm, submesh_choices[i], autosharding_configs[i], layers,
                         accumulator_mapping, acc_grad_invars, acc_grad_outvars,
                         jax_apply_layers, apply_grad_global_info, num_micro_batches,
-                        default_as_option, stage_option, i,
-                        heter_cluster_flops_ratio[i])
+                        default_as_option, stage_option, i)
                     if stage_option.cached_compute_communication_cost_store_path_prefix is not None:
                         store_cached_compute_communication_cost(
                             compute_cost_i, max_n_succ_stages_i,

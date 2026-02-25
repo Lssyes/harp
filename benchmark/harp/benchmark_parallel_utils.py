@@ -73,8 +73,8 @@ def get_pipeshard_parallel_method(benchmark_case: BenchmarkCase,
         remat_mode = "coarse_grained_remat" if use_remat else "none"
         auto_stage_option["cached_profile_result"] = None
 
-        if global_config.enable_Hetero:
-            assert auto_stage_option["gpu_flops"] is not None, "Please provide theoretical gpu_flops for each GPU."
+        # if global_config.enable_Hetero:
+        #     assert auto_stage_option["gpu_flops"] is not None, "Please provide theoretical gpu_flops for each GPU."
 
         method = PipeshardParallel(
             num_micro_batches=num_micro_batches,
