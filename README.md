@@ -29,8 +29,7 @@ Before running HARP, ensure your cluster meets the following requirements:
 ### 2.1 Clone the Repository
 Clone the repository recursively to include all submodules (Alpa, Ray extensions, etc.).
 
-```shell
-Bash
+```Bash
 git clone --recursive https://github.com/Lssyes/harp.git
 cd harp
 ```
@@ -41,7 +40,7 @@ HARP uses SSH to coordinate between heterogeneous nodes. Before builing docker i
 ```Bash
 mkdir -p docker/ssh_key
 ssh-keygen -t rsa -b 4096 -f ./docker/ssh_key/id_rsa -N ""
-cat ./docker/ssh_key/id_rsa.pub >> ./docker/ssh_key/id_rsa/authorized_keys
+cat ./docker/ssh_key/id_rsa.pub >> ./docker/ssh_key/authorized_keys
 ```
 
 ### 2.3 Build the Docker Image
@@ -88,7 +87,7 @@ docker build \
   --build-arg CUDNN_VERSION="${CUDNN_VERSION}" \
   --build-arg UBUNTU_VERSION="${UBUNTU_VERSION}" \
   -f docker/build_harp.Dockerfile \
-  -t "harp:sm$GPU_TYPE" .
+  -t "harp:sm$SM" .
 
 ```
 
@@ -99,9 +98,6 @@ docker build \
 Run the following command on each node in your cluster. Note: We recommend mounting a shared NFS directory to simplify file exchange.
 
 ```Bash
-# Set your GPU SM version (e.g., 80 for A100, 70 for V100)
-export GPU_TYPE=80 
-
 docker run -it \
     --rm \
     --network host \
@@ -111,7 +107,7 @@ docker run -it \
     --name harp \
     --gpus all \
     -v /path/to/your/nfs:/workspace/nfs_share \
-    harp:sm$GPU_TYPE /bin/bash
+    harp:sm$SM /bin/bash
 # (Make sure to adjust -v to mount your actual NFS path if available)
 ```
 
